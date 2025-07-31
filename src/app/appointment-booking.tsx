@@ -314,7 +314,7 @@ export function AppointmentBooking({
                 {confirmationResult.confirmationStatus ? '¡Cita Confirmada!' : 'Estado de la Solicitud'}
               </AlertDialogTitle>
               <AlertDialogDescription className="pt-4 space-y-2">
-                <div>{confirmationResult.reason}</div>
+                <span>{confirmationResult.reason}</span>
                 {confirmationResult.confirmationStatus && selectedSlot && (
                   <div className="p-4 bg-muted/50 rounded-lg text-foreground">
                     <p><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</p>
