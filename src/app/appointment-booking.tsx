@@ -313,16 +313,16 @@ export function AppointmentBooking({
                 )}
                   Solicitud Enviada
               </AlertDialogTitle>
-              <AlertDialogDescription className="pt-4 space-y-2">
-                <span>{confirmationResult.reason}</span>
-                {confirmationResult.confirmationStatus && selectedSlot && (
-                  <div className="p-4 bg-muted/50 rounded-lg text-foreground">
+              <AlertDialogDescription>
+                {confirmationResult.reason}
+              </AlertDialogDescription>
+               {confirmationResult.confirmationStatus && selectedSlot && (
+                  <div className="p-4 -mx-2 -mb-4 bg-muted/50 rounded-lg text-foreground">
                     <div><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</div>
                     <div><strong>Fecha:</strong> {format(selectedSlot.date, "EEEE, d 'de' MMMM, yyyy", { locale: es })}</div>
                     <div><strong>Hora:</strong> {format(selectedSlot.date, "p", { locale: es })}</div>
                   </div>
                 )}
-              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setConfirmationOpen(false)}>Cerrar</AlertDialogAction>
