@@ -1,6 +1,7 @@
 'use server';
 
-import { confirmAppointment, type ConfirmAppointmentInput, type ConfirmAppointmentOutput } from '@/ai/flows/smart-appointment-confirmation';
+import { confirmAppointment } from '@/ai/flows/smart-appointment-confirmation';
+import type { ConfirmAppointmentInput, ConfirmAppointmentOutput } from '@/lib/types';
 
 export async function handleAppointmentRequest(
   formData: { patientName: string; contactNumber: string; requirements?: string },
