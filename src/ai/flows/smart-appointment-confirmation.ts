@@ -7,7 +7,7 @@
  * - ConfirmAppointmentOutput - The return type for the confirmAppointment function.
  */
 
-import {z} from 'genkit/zod';
+import {z} from 'zod';
 
 // Note: This file is not currently used but is kept for potential future AI integration.
 
