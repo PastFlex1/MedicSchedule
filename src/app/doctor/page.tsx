@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -23,6 +23,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { db } from '@/lib/firebase';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDoc, setDoc } from 'firebase/firestore';
+import type { Appointment } from '@/lib/types';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 function Header() {
   return (
@@ -45,35 +50,72 @@ function Header() {
   );
 }
 
-const initialPendingAppointments = [
-    { id: '1', patientName: 'Carlos Ramirez', date: '2024-10-26', time: '14:30', reason: 'Chequeo general' },
-    { id: '2', patientName: 'Ana Torres', date: '2024-10-26', time: '15:00', reason: 'Resultados de análisis' },
-    { id: '3', patientName: 'Luisa Fernandez', date: '2024-10-27', time: '10:00', reason: 'Dolor de espalda' },
-    { id: '4', patientName: 'Jorge Campos', date: '2024-10-27', time: '10:00', reason: 'Consulta de seguimiento' },
-];
-
 export default function DoctorPage() {
-  const [pendingAppointments, setPendingAppointments] = useState(initialPendingAppointments);
-  const [approvedAppointments, setApprovedAppointments] = useState<typeof initialPendingAppointments>([]);
-  const [rescheduleAppointment, setRescheduleAppointment] = useState<(typeof initialPendingAppointments[0]) | null>(null);
+  const [pendingAppointments, setPendingAppointments] = useState<Appointment[]>([]);
+  const [approvedAppointments, setApprovedAppointments] = useState<Appointment[]>([]);
+  const [rescheduleAppointment, setRescheduleAppointment] = useState<Appointment | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // This is a temporary doctor ID for demonstration.
+  // In a real app, this would come from the authenticated doctor's profile.
+  const FAKE_DOCTOR_ID = "1";
 
-  const handleApprove = (id: string) => {
-    const appointmentToApprove = pendingAppointments.find(a => a.id === id);
-    if (appointmentToApprove) {
-      setApprovedAppointments(prev => [...prev, appointmentToApprove].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-      setPendingAppointments(prev => prev.filter(a => a.id !== id));
-    }
+  useEffect(() => {
+    const q = query(
+      collection(db, "appointments"),
+      where("doctor.id", "==", FAKE_DOCTOR_ID)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const pending: Appointment[] = [];
+      const approved: Appointment[] = [];
+      querySnapshot.forEach((doc) => {
+        const appointment = { id: doc.id, ...doc.data() } as Appointment;
+        if (appointment.status === 'pending') {
+          pending.push(appointment);
+        } else if (appointment.status === 'approved') {
+          approved.push(appointment);
+        }
+      });
+      setPendingAppointments(pending.sort((a,b) => a.appointmentDate.toMillis() - b.appointmentDate.toMillis()));
+      setApprovedAppointments(approved.sort((a,b) => a.appointmentDate.toMillis() - b.appointmentDate.toMillis()));
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleApprove = async (id: string) => {
+     if(!id) return;
+    const appointmentRef = doc(db, 'appointments', id);
+    await updateDoc(appointmentRef, { status: 'approved' });
   };
 
-  const handleCancel = (id: string) => {
-    setPendingAppointments(prev => prev.filter(a => a.id !== id));
+  const handleCancel = async (id: string) => {
+     if(!id) return;
+    const appointmentRef = doc(db, 'appointments', id);
+    // Instead of deleting, we can mark as cancelled
+    // await updateDoc(appointmentRef, { status: 'cancelled' });
+    // Or, for this demo, we'll just delete it.
+    await deleteDoc(appointmentRef);
+    
+    // Also, we need to make the slot available again.
+    const appointmentSnap = await getDoc(appointmentRef);
+    if(appointmentSnap.exists()) {
+        const appointmentData = appointmentSnap.data();
+        const slotId = `${appointmentData.doctor.id}_${appointmentData.appointmentDate.toDate().toISOString()}`;
+        const slotRef = doc(db, "appointmentSlots", slotId);
+        // This assumes the slot was removed. If not, this logic needs adjustment.
+        // For this app, we'll assume we need to re-create it.
+        await setDoc(slotRef, {
+            doctorId: appointmentData.doctor.id,
+            date: appointmentData.appointmentDate.toDate()
+        });
+    }
   };
   
-  const handleRescheduleClick = (id: string) => {
-    const appointment = pendingAppointments.find(a => a.id === id);
-    if(appointment) {
-        setRescheduleAppointment(appointment);
-    }
+  const handleRescheduleClick = (appointment: Appointment) => {
+     setRescheduleAppointment(appointment);
   };
 
 
@@ -98,21 +140,25 @@ export default function DoctorPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendingAppointments.length > 0 ? (
+                {isLoading ? (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24">Cargando...</TableCell>
+                    </TableRow>
+                ) : pendingAppointments.length > 0 ? (
                   pendingAppointments.map((appointment) => (
                     <TableRow key={appointment.id}>
                       <TableCell className="font-medium">{appointment.patientName}</TableCell>
-                      <TableCell>{appointment.date}</TableCell>
-                      <TableCell>{appointment.time}</TableCell>
-                      <TableCell>{appointment.reason}</TableCell>
+                      <TableCell>{format(appointment.appointmentDate.toDate(), "d 'de' MMMM, yyyy", { locale: es })}</TableCell>
+                      <TableCell>{format(appointment.appointmentDate.toDate(), "p", { locale: es })}</TableCell>
+                      <TableCell>{appointment.requirements || 'N/A'}</TableCell>
                       <TableCell className="text-right space-x-2">
-                         <Button variant="outline" size="icon" className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white" onClick={() => handleApprove(appointment.id)}>
+                         <Button variant="outline" size="icon" className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white" onClick={() => handleApprove(appointment.id!)}>
                           <Check className="h-4 w-4" />
                         </Button>
-                         <Button variant="outline" size="icon" className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white" onClick={() => handleCancel(appointment.id)}>
+                         <Button variant="outline" size="icon" className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white" onClick={() => handleCancel(appointment.id!)}>
                           <X className="h-4 w-4" />
                         </Button>
-                         <Button variant="outline" size="icon" className="border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-white" onClick={() => handleRescheduleClick(appointment.id)}>
+                         <Button variant="outline" size="icon" className="border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-white" onClick={() => handleRescheduleClick(appointment)}>
                           <AlertCircle className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -136,17 +182,19 @@ export default function DoctorPage() {
             <CardDescription>Estas son las citas que ha confirmado. Los pacientes han sido notificados.</CardDescription>
           </CardHeader>
           <CardContent>
-            {approvedAppointments.length > 0 ? (
+            {isLoading ? (
+                 <div className="text-center py-12 text-muted-foreground">Cargando...</div>
+            ) : approvedAppointments.length > 0 ? (
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {approvedAppointments.map(appointment => (
                         <Card key={appointment.id} className="bg-green-500/10 border-green-500/20">
                             <CardHeader>
                                 <CardTitle className="text-base font-bold flex items-center gap-2"><PartyPopper className="h-5 w-5 text-green-600"/> {appointment.patientName}</CardTitle>
-                                <CardDescription className="text-green-900/80">{appointment.reason}</CardDescription>
+                                <CardDescription className="text-green-900/80">{appointment.requirements || 'N/A'}</CardDescription>
                             </CardHeader>
                             <CardContent className="flex items-center gap-4 text-sm">
-                                <Badge variant="secondary" className="bg-green-100"><Calendar className="h-4 w-4 mr-1"/> {appointment.date}</Badge>
-                                <Badge variant="secondary" className="bg-green-100"><Clock className="h-4 w-4 mr-1"/> {appointment.time}</Badge>
+                                <Badge variant="secondary" className="bg-green-100"><Calendar className="h-4 w-4 mr-1"/> {format(appointment.appointmentDate.toDate(), "d MMM yyyy", { locale: es })}</Badge>
+                                <Badge variant="secondary" className="bg-green-100"><Clock className="h-4 w-4 mr-1"/> {format(appointment.appointmentDate.toDate(), "p", { locale: es })}</Badge>
                             </CardContent>
                         </Card>
                     ))}
@@ -174,7 +222,7 @@ export default function DoctorPage() {
                         ¡Conflicto de Agendamiento!
                     </AlertDialogTitle>
                     <AlertDialogDescription className="pt-4">
-                        La cita para <strong>{rescheduleAppointment.patientName}</strong> a las <strong>{rescheduleAppointment.time}</strong> del <strong>{rescheduleAppointment.date}</strong> tiene un conflicto con otra cita.
+                        La cita para <strong>{rescheduleAppointment.patientName}</strong> a las <strong>{format(rescheduleAppointment.appointmentDate.toDate(), "p", { locale: es })}</strong> del <strong>{format(rescheduleAppointment.appointmentDate.toDate(), "d 'de' MMMM", { locale: es })}</strong> tiene un conflicto con otra cita.
                         <br /><br />
                         Por favor, cancele esta solicitud y pida al paciente que elija otro horario, o póngase en contacto con el paciente para reagendarla manualmente.
                     </AlertDialogDescription>

@@ -1,35 +1,17 @@
 
 "use client";
 
-import { useState } from 'react';
-import type { Doctor, AppointmentSlot as AppointmentSlotType, BookedAppointment } from '@/lib/types';
+import { useState, useEffect } from 'react';
+import type { Doctor, Appointment, BookedAppointment } from '@/lib/types';
 import { AppointmentBooking } from '../appointment-booking';
 import { Stethoscope, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, doc, setDoc, query, where, onSnapshot } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
-function Header() {
-  return (
-    <header className="bg-card/80 backdrop-blur-sm sticky top-0 z-40 shadow-sm">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Stethoscope className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-bold font-headline text-primary tracking-tight">
-            MediSchedule
-          </h1>
-        </div>
-        <Button variant="ghost" asChild>
-          <Link href="/login">
-            <LogOut className="mr-2 h-4 w-4" />
-            Cerrar Sesión
-          </Link>
-        </Button>
-      </div>
-    </header>
-  );
-}
-
-const doctors: Doctor[] = [
+const initialDoctors: Doctor[] = [
   {
     id: '1',
     name: 'Dra. Sarah Johnson',
@@ -64,36 +46,123 @@ const doctors: Doctor[] = [
   },
 ];
 
-const initialAppointmentSlots: AppointmentSlotType[] = [
-  { id: '101', date: new Date(2024, 9, 26, 9, 0, 0), doctorId: '1' },
-  { id: '102', date: new Date(2024, 9, 26, 9, 30, 0), doctorId: '1' },
-  { id: '103', date: new Date(2024, 9, 26, 10, 0, 0), doctorId: '4' },
-  { id: '104', date: new Date(2024, 9, 26, 11, 0, 0), doctorId: '4' },
-  { id: '105', date: new Date(2024, 9, 28, 10, 0, 0), doctorId: '2' },
-  { id: '106', date: new Date(2024, 9, 28, 10, 30, 0), doctorId: '2' },
-  { id: '107', date: new Date(2024, 9, 26, 14, 0, 0), doctorId: '1' },
-  { id: '108', date: new Date(2024, 9, 28, 11, 30, 0), doctorId: '2' },
-];
+function Header() {
+  return (
+    <header className="bg-card/80 backdrop-blur-sm sticky top-0 z-40 shadow-sm">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Stethoscope className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl font-bold font-headline text-primary tracking-tight">
+            MediSchedule
+          </h1>
+        </div>
+        <Button variant="ghost" asChild>
+          <Link href="/login">
+            <LogOut className="mr-2 h-4 w-4" />
+            Cerrar Sesión
+          </Link>
+        </Button>
+      </div>
+    </header>
+  );
+}
+
+function LoadingSkeleton() {
+    return (
+        <div className="space-y-16">
+            <section className="text-center">
+                <Skeleton className="h-8 w-1/2 mx-auto mb-2" />
+                <Skeleton className="h-4 w-3/4 mx-auto mb-8" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-60" />)}
+                </div>
+            </section>
+            <section className="text-center">
+                <Skeleton className="h-8 w-1/2 mx-auto mb-2" />
+                <Skeleton className="h-4 w-3/4 mx-auto mb-8" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                     {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-48" />)}
+                </div>
+            </section>
+        </div>
+    )
+}
 
 
 export default function PatientPage() {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [bookedAppointments, setBookedAppointments] = useState<BookedAppointment[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<AppointmentSlotType[]>(initialAppointmentSlots);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleAppointmentBooked = (appointment: BookedAppointment) => {
-    setBookedAppointments(prev => [...prev, appointment]);
-    setAvailableSlots(prev => prev.filter(slot => slot.id !== appointment.id));
-  };
+  // This is a temporary user ID for demonstration purposes.
+  // In a real app, you would get this from your authentication system.
+  const FAKE_USER_ID = "patient123";
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      const doctorsCol = collection(db, 'doctors');
+      const doctorSnapshot = await getDocs(doctorsCol);
+      if (doctorSnapshot.empty) {
+        // Seed doctors if collection is empty
+        for (const doctor of initialDoctors) {
+          await setDoc(doc(db, 'doctors', doctor.id), doctor);
+        }
+        setDoctors(initialDoctors);
+      } else {
+        const doctorList = doctorSnapshot.docs.map(doc => doc.data() as Doctor);
+        setDoctors(doctorList);
+      }
+    };
+    
+    fetchDoctors();
+
+    // Listen for changes in the user's appointments
+    const q = query(collection(db, "appointments"), where("patientId", "==", FAKE_USER_ID));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const appointments: BookedAppointment[] = [];
+      const fetchedDoctors = new Map(doctors.map(doc => [doc.id, doc]));
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        const doctor = fetchedDoctors.get(data.doctor.id);
+        if (doctor) {
+            appointments.push({
+                id: doc.id,
+                date: data.appointmentDate.toDate(),
+                doctorId: data.doctor.id,
+                doctor: doctor,
+            });
+        }
+      });
+      setBookedAppointments(appointments);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [doctors]);
+
+
+  if (isLoading) {
+    return (
+        <div className="flex flex-col min-h-screen bg-background">
+            <Header />
+            <main className="flex-1 container mx-auto p-4 sm:p-6 md:p-8">
+                <LoadingSkeleton />
+            </main>
+        </div>
+    );
+  }
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-1 container mx-auto p-4 sm:p-6 md:p-8">
         <AppointmentBooking 
-          doctors={doctors} 
-          appointmentSlots={availableSlots}
-          onAppointmentBooked={handleAppointmentBooked}
+          doctors={doctors}
+          onAppointmentBooked={() => {}} // The onSnapshot now handles updates
           bookedAppointments={bookedAppointments}
+          patientId={FAKE_USER_ID}
         />
       </main>
       <footer className="bg-card mt-12">

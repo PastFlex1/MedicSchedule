@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useTransition, type ComponentProps, createElement } from "react";
+import { useState, useTransition, type ComponentProps, createElement, useEffect } from "react";
 import Image from "next/image";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -53,6 +53,8 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Doctor, AppointmentSlot, IconName, BookedAppointment, ConfirmAppointmentOutput } from "@/lib/types";
 import { handleAppointmentRequest } from "./actions";
+import { collection, getDocs, doc, setDoc, query, where } from 'firebase/firestore';
+import { db } from "@/lib/firebase";
 
 
 const formSchema = z.object({
@@ -61,8 +63,22 @@ const formSchema = z.object({
   requirements: z.string().optional(),
 });
 
+const initialAppointmentSlots: Omit<AppointmentSlot, 'id'>[] = [
+    // Dr. Johnson
+    { date: new Date(new Date().setHours(9, 0, 0, 0)), doctorId: '1' },
+    { date: new Date(new Date().setHours(9, 30, 0, 0)), doctorId: '1' },
+    { date: new Date(new Date().setHours(14, 0, 0, 0)), doctorId: '1' },
+    // Dr. Smith
+    { date: new Date(new Date().setDate(new Date().getDate() + 2), 9, 28, 10, 0, 0), doctorId: '2' },
+    { date: new Date(new Date().setDate(new Date().getDate() + 2), 9, 28, 10, 30, 0), doctorId: '2' },
+    { date: new Date(new Date().setDate(new Date().getDate() + 2), 9, 28, 11, 30, 0), doctorId: '2' },
+    // Dr. Chen
+    { date: new Date(new Date().setHours(10, 0, 0, 0)), doctorId: '4' },
+    { date: new Date(new Date().setHours(11, 0, 0, 0)), doctorId: '4' },
+];
+
 function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & ComponentProps<typeof Card>) {
-  const IconComponent = icons[doctor.icon];
+  const IconComponent = doctor.icon ? icons[doctor.icon] : null;
 
   return (
     <Card className={cn("flex flex-col text-center items-center p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1", className)} {...props}>
@@ -75,10 +91,12 @@ function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & Compon
         <CardDescription className="text-primary">{doctor.specialty}</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
-        <Badge variant="secondary" className="bg-accent/20 text-accent-foreground/80">
-          {IconComponent && createElement(IconComponent, { className: "mr-2 h-4 w-4 text-accent" })}
-          {doctor.specialty}
-        </Badge>
+        {IconComponent && (
+            <Badge variant="secondary" className="bg-accent/20 text-accent-foreground/80">
+                {createElement(IconComponent, { className: "mr-2 h-4 w-4 text-accent" })}
+                {doctor.specialty}
+            </Badge>
+        )}
       </CardContent>
     </Card>
   );
@@ -114,18 +132,19 @@ function AppointmentCard({ slot, doctor, onBook, className, ...props }: { slot: 
 
 export function AppointmentBooking({
   doctors,
-  appointmentSlots,
   onAppointmentBooked,
   bookedAppointments = [],
+  patientId,
 }: {
   doctors: Doctor[];
-  appointmentSlots: AppointmentSlot[];
   onAppointmentBooked: (appointment: BookedAppointment) => void;
   bookedAppointments: BookedAppointment[];
+  patientId: string;
 }) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
+  const [appointmentSlots, setAppointmentSlots] = useState<AppointmentSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null);
   const [isFormOpen, setFormOpen] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmAppointmentOutput | null>(null);
@@ -140,6 +159,27 @@ export function AppointmentBooking({
     },
   });
 
+   useEffect(() => {
+    const seedAndFetchSlots = async () => {
+      const slotsCol = collection(db, 'appointmentSlots');
+      const slotSnapshot = await getDocs(slotsCol);
+      if (slotSnapshot.empty) {
+        // Seed slots
+        for (const slot of initialAppointmentSlots) {
+          const slotId = `${slot.doctorId}_${slot.date.toISOString()}`;
+          await setDoc(doc(db, 'appointmentSlots', slotId), slot);
+        }
+         const seededSlots = initialAppointmentSlots.map(s => ({...s, id: `${s.doctorId}_${s.date.toISOString()}`}));
+         setAppointmentSlots(seededSlots);
+      } else {
+        const slotList = slotSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppointmentSlot));
+        setAppointmentSlots(slotList);
+      }
+    };
+    seedAndFetchSlots();
+  }, []);
+
+
   const handleBookClick = (slot: AppointmentSlot) => {
     setSelectedSlot(slot);
     setFormOpen(true);
@@ -153,9 +193,13 @@ export function AppointmentBooking({
 
     startTransition(async () => {
       const result = await handleAppointmentRequest(values, {
-        appointmentDate: format(selectedSlot.date, 'yyyy-MM-dd'),
-        appointmentTime: format(selectedSlot.date, 'HH:mm'),
-        doctorName: doctor.name,
+        appointmentDate: selectedSlot.date,
+        doctor: {
+            id: doctor.id,
+            name: doctor.name,
+            specialty: doctor.specialty
+        },
+        patientId,
       });
 
       setConfirmationResult(result);
@@ -163,7 +207,8 @@ export function AppointmentBooking({
       setConfirmationOpen(true);
 
       if (result.confirmationStatus) {
-        onAppointmentBooked({ ...selectedSlot, doctor });
+        // Remove the booked slot from the available slots
+        setAppointmentSlots(prev => prev.filter(s => s.id !== selectedSlot.id));
       }
 
       form.reset();
@@ -172,6 +217,11 @@ export function AppointmentBooking({
 
   const doctorMap = new Map(doctors.map(doc => [doc.id, doc]));
   const bookedDates = bookedAppointments.map(a => a.date);
+  
+  const availableSlots = appointmentSlots.filter(slot => 
+    !bookedAppointments.some(booked => booked.date.getTime() === slot.date.getTime() && booked.doctorId === slot.doctorId)
+  );
+
 
   return (
     <div className="space-y-16">
@@ -230,7 +280,7 @@ export function AppointmentBooking({
         <h2 className="text-3xl font-bold font-headline mb-2">Citas Disponibles</h2>
         <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elija un horario que le convenga. Su solicitud será enviada al doctor para su aprobación.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {appointmentSlots.map(slot => (
+          {availableSlots.map(slot => (
             <AppointmentCard
               key={slot.id}
               slot={slot}
@@ -316,14 +366,14 @@ export function AppointmentBooking({
               <AlertDialogDescription>
                 {confirmationResult.reason}
               </AlertDialogDescription>
-               {confirmationResult.confirmationStatus && selectedSlot && (
-                  <div className="p-4 -mx-2 -mb-4 bg-muted/50 rounded-lg text-foreground">
-                    <div><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</div>
-                    <div><strong>Fecha:</strong> {format(selectedSlot.date, "EEEE, d 'de' MMMM, yyyy", { locale: es })}</div>
-                    <div><strong>Hora:</strong> {format(selectedSlot.date, "p", { locale: es })}</div>
-                  </div>
-                )}
             </AlertDialogHeader>
+            {confirmationResult.confirmationStatus && selectedSlot && (
+              <div className="p-4 -mx-2 -mb-4 bg-muted/50 rounded-lg text-foreground">
+                <div><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</div>
+                <div><strong>Fecha:</strong> {format(selectedSlot.date, "EEEE, d 'de' MMMM, yyyy", { locale: es })}</div>
+                <div><strong>Hora:</strong> {format(selectedSlot.date, "p", { locale: es })}</div>
+              </div>
+            )}
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setConfirmationOpen(false)}>Cerrar</AlertDialogAction>
             </AlertDialogFooter>
