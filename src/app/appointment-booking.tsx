@@ -50,9 +50,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { Doctor, AppointmentSlot, IconName, BookedAppointment } from "@/lib/types";
+import type { Doctor, AppointmentSlot, IconName, BookedAppointment, ConfirmAppointmentOutput } from "@/lib/types";
 import { handleAppointmentRequest } from "./actions";
-import type { ConfirmAppointmentOutput } from "@/ai/flows/smart-appointment-confirmation";
 
 
 const formSchema = z.object({
@@ -317,9 +316,9 @@ export function AppointmentBooking({
                 <span>{confirmationResult.reason}</span>
                 {confirmationResult.confirmationStatus && selectedSlot && (
                   <div className="p-4 bg-muted/50 rounded-lg text-foreground">
-                    <p><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</p>
-                    <p><strong>Fecha:</strong> {format(selectedSlot.date, "EEEE, d 'de' MMMM, yyyy", { locale: es })}</p>
-                    <p><strong>Hora:</strong> {format(selectedSlot.date, "p", { locale: es })}</p>
+                    <div><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</div>
+                    <div><strong>Fecha:</strong> {format(selectedSlot.date, "EEEE, d 'de' MMMM, yyyy", { locale: es })}</div>
+                    <div><strong>Hora:</strong> {format(selectedSlot.date, "p", { locale: es })}</div>
                     <p className="text-sm mt-2 text-muted-foreground">Recibirá un correo electrónico/SMS con los detalles de su cita en breve.</p>
                   </div>
                 )}
