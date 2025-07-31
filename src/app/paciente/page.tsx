@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -63,7 +64,7 @@ const doctors: Doctor[] = [
   },
 ];
 
-const appointmentSlots: AppointmentSlotType[] = [
+const initialAppointmentSlots: AppointmentSlotType[] = [
   { id: '101', date: new Date(2024, 9, 26, 9, 0, 0), doctorId: '1' },
   { id: '102', date: new Date(2024, 9, 26, 9, 30, 0), doctorId: '1' },
   { id: '103', date: new Date(2024, 9, 26, 10, 0, 0), doctorId: '4' },
@@ -77,9 +78,11 @@ const appointmentSlots: AppointmentSlotType[] = [
 
 export default function PatientPage() {
   const [bookedAppointments, setBookedAppointments] = useState<BookedAppointment[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<AppointmentSlotType[]>(initialAppointmentSlots);
 
   const handleAppointmentBooked = (appointment: BookedAppointment) => {
     setBookedAppointments(prev => [...prev, appointment]);
+    setAvailableSlots(prev => prev.filter(slot => slot.id !== appointment.id));
   };
 
   return (
@@ -88,7 +91,7 @@ export default function PatientPage() {
       <main className="flex-1 container mx-auto p-4 sm:p-6 md:p-8">
         <AppointmentBooking 
           doctors={doctors} 
-          appointmentSlots={appointmentSlots}
+          appointmentSlots={availableSlots}
           onAppointmentBooked={handleAppointmentBooked}
           bookedAppointments={bookedAppointments}
         />
