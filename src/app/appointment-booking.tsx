@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { Loader2, CheckCircle2, XCircle, Calendar, Clock, icons } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,6 @@ import {
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -55,8 +55,8 @@ import type { ConfirmAppointmentOutput } from "@/ai/flows/smart-appointment-conf
 
 
 const formSchema = z.object({
-  patientName: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  contactNumber: z.string().min(10, { message: "Please enter a valid contact number." }),
+  patientName: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+  contactNumber: z.string().min(9, { message: "Por favor, ingrese un número de contacto válido." }),
   requirements: z.string().optional(),
 });
 
@@ -97,8 +97,8 @@ function AppointmentCard({ slot, doctor, onBook, className, ...props }: Appointm
   return (
     <Card className={cn("transition-all duration-300 hover:shadow-lg hover:border-primary/50", className)} {...props}>
       <CardHeader>
-        <CardTitle className="font-headline text-lg flex items-center gap-2"><Calendar className="h-5 w-5 text-primary" /> {format(slot.date, "EEEE, MMMM d")}</CardTitle>
-        <CardDescription className="flex items-center gap-2"><Clock className="h-5 w-5 text-muted-foreground" /> {format(slot.date, "p")}</CardDescription>
+        <CardTitle className="font-headline text-lg flex items-center gap-2 capitalize"><Calendar className="h-5 w-5 text-primary" /> {format(slot.date, "EEEE, d 'de' MMMM", { locale: es })}</CardTitle>
+        <CardDescription className="flex items-center gap-2"><Clock className="h-5 w-5 text-muted-foreground" /> {format(slot.date, "p", { locale: es })}</CardDescription>
       </CardHeader>
       {doctor && (
         <CardContent>
@@ -115,7 +115,7 @@ function AppointmentCard({ slot, doctor, onBook, className, ...props }: Appointm
         </CardContent>
       )}
       <CardFooter>
-        <Button onClick={onBook} className="w-full bg-accent hover:bg-accent/90">Book Now</Button>
+        <Button onClick={onBook} className="w-full bg-accent hover:bg-accent/90">Reservar Ahora</Button>
       </CardFooter>
     </Card>
   );
@@ -175,8 +175,8 @@ export function AppointmentBooking({
   return (
     <div className="space-y-16">
       <section id="doctors" className="text-center">
-        <h2 className="text-3xl font-bold font-headline mb-2">Our Specialists</h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Meet our team of dedicated and experienced medical professionals.</p>
+        <h2 className="text-3xl font-bold font-headline mb-2">Nuestros Especialistas</h2>
+        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Conozca a nuestro equipo de profesionales médicos dedicados y experimentados.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {doctors.map(doctor => (
             <DoctorCard key={doctor.id} doctor={doctor} />
@@ -185,8 +185,8 @@ export function AppointmentBooking({
       </section>
 
       <section id="appointments" className="text-center">
-        <h2 className="text-3xl font-bold font-headline mb-2">Available Appointments</h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Choose a time slot that works for you. Our AI assistant will confirm your booking.</p>
+        <h2 className="text-3xl font-bold font-headline mb-2">Citas Disponibles</h2>
+        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elija un horario que le convenga. Nuestro asistente de IA confirmará su reserva.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {appointmentSlots.map(slot => (
             <AppointmentCard
@@ -202,9 +202,9 @@ export function AppointmentBooking({
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Request Appointment</DialogTitle>
+            <DialogTitle>Solicitar Cita</DialogTitle>
             <DialogDescription>
-              Please fill out your details to request an appointment for {selectedSlot && format(selectedSlot.date, "MMMM d, yyyy 'at' p")}.
+              Por favor, complete sus datos para solicitar una cita para el {selectedSlot && format(selectedSlot.date, "d 'de' MMMM, yyyy 'a las' p", { locale: es })}.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -214,9 +214,9 @@ export function AppointmentBooking({
                 name="patientName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Full Name</FormLabel>
+                    <FormLabel>Nombre Completo</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input placeholder="Juan Pérez" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -227,9 +227,9 @@ export function AppointmentBooking({
                 name="contactNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Contact Number</FormLabel>
+                    <FormLabel>Número de Contacto</FormLabel>
                     <FormControl>
-                      <Input placeholder="(123) 456-7890" {...field} />
+                      <Input placeholder="912 345 678" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -240,9 +240,9 @@ export function AppointmentBooking({
                 name="requirements"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Specific Requirements (Optional)</FormLabel>
+                    <FormLabel>Requisitos Específicos (Opcional)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="e.g., wheelchair access, specific concerns" {...field} />
+                      <Textarea placeholder="Ej: acceso para silla de ruedas, inquietudes específicas" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -251,7 +251,7 @@ export function AppointmentBooking({
               <DialogFooter>
                 <Button type="submit" disabled={isPending}>
                   {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Request Appointment
+                  Solicitar Cita
                 </Button>
               </DialogFooter>
             </form>
@@ -269,27 +269,27 @@ export function AppointmentBooking({
                 ) : (
                   <XCircle className="h-6 w-6 text-destructive" />
                 )}
-                Appointment {confirmationResult.confirmationStatus ? 'Confirmed!' : 'Request Status'}
+                {confirmationResult.confirmationStatus ? '¡Cita Confirmada!' : 'Estado de la Solicitud'}
               </AlertDialogTitle>
               <AlertDialogDescription className="pt-4 space-y-2">
                 <p>{confirmationResult.reason}</p>
                 {confirmationResult.confirmationStatus && selectedSlot && (
                   <div className="p-4 bg-muted/50 rounded-lg text-foreground">
                     <p><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</p>
-                    <p><strong>Date:</strong> {format(selectedSlot.date, "EEEE, MMMM d, yyyy")}</p>
-                    <p><strong>Time:</strong> {format(selectedSlot.date, "p")}</p>
-                    <p className="text-sm mt-2 text-muted-foreground">You will receive an email/SMS with your appointment details shortly.</p>
+                    <p><strong>Fecha:</strong> {format(selectedSlot.date, "EEEE, d 'de' MMMM, yyyy", { locale: es })}</p>
+                    <p><strong>Hora:</strong> {format(selectedSlot.date, "p", { locale: es })}</p>
+                    <p className="text-sm mt-2 text-muted-foreground">Recibirá un correo electrónico/SMS con los detalles de su cita en breve.</p>
                   </div>
                 )}
                 {!confirmationResult.confirmationStatus && confirmationResult.suggestedAlternative && (
                   <p>
-                    <strong>Suggested Alternative:</strong> {confirmationResult.suggestedAlternative}
+                    <strong>Alternativa Sugerida:</strong> {confirmationResult.suggestedAlternative}
                   </p>
                 )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogAction onClick={() => setConfirmationOpen(false)}>Close</AlertDialogAction>
+              <AlertDialogAction onClick={() => setConfirmationOpen(false)}>Cerrar</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

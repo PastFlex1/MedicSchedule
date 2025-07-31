@@ -24,7 +24,7 @@ export type ConfirmAppointmentInput = z.infer<typeof ConfirmAppointmentInputSche
 
 const ConfirmAppointmentOutputSchema = z.object({
   confirmationStatus: z.boolean().describe('Whether the appointment is confirmed or not.'),
-  reason: z.string().describe('The reason for confirmation or rejection.'),
+  reason: z.string().describe('The reason for confirmation or rejection, in Spanish.'),
   suggestedAlternative: z.string().optional().describe('A suggested alternative time if the appointment is rejected.'),
 });
 export type ConfirmAppointmentOutput = z.infer<typeof ConfirmAppointmentOutputSchema>;
@@ -37,25 +37,25 @@ const prompt = ai.definePrompt({
   name: 'confirmAppointmentPrompt',
   input: {schema: ConfirmAppointmentInputSchema},
   output: {schema: ConfirmAppointmentOutputSchema},
-  prompt: `You are an AI assistant that confirms or rejects appointment requests based on doctor availability.
+  prompt: `Eres un asistente de IA que confirma o rechaza solicitudes de citas basándose en la disponibilidad del doctor. Debes responder en español.
 
-  Consider the following information when making your decision:
+  Considera la siguiente información para tomar tu decisión:
 
-  Patient Name: {{{patientName}}}
-  Contact Number: {{{contactNumber}}}
-  Requested Date: {{{appointmentDate}}}
-  Requested Time: {{{appointmentTime}}}
-  Doctor Name: {{{doctorName}}}
-  Requirements: {{{requirements}}}
-  Availability Calendar: {{{availabilityCalendar}}}
+  Nombre del Paciente: {{{patientName}}}
+  Número de Contacto: {{{contactNumber}}}
+  Fecha Solicitada: {{{appointmentDate}}}
+  Hora Solicitada: {{{appointmentTime}}}
+  Nombre del Doctor: {{{doctorName}}}
+  Requisitos: {{{requirements}}}
+  Calendario de Disponibilidad: {{{availabilityCalendar}}}
 
-  Determine if the appointment should be confirmed or rejected based on the provided information.  If rejected, provide a reason and suggest an alternative time.  The output should be JSON.  The "suggestedAlternative" field should be left blank if no alternative exists.
+  Determina si la cita debe ser confirmada o rechazada basándote en la información proporcionada. Si la rechazas, proporciona una razón y sugiere una hora alternativa si es posible. La salida debe ser un JSON. El campo "suggestedAlternative" debe dejarse en blanco si no existe una alternativa.
 
-  Respond in the following JSON format:
+  Responde en el siguiente formato JSON:
   {
-    "confirmationStatus": true or false,
-    "reason": "Reason for confirmation or rejection",
-    "suggestedAlternative": "Suggested alternative time (YYYY-MM-DD HH:MM)" or null
+    "confirmationStatus": true o false,
+    "reason": "Razón en español para la confirmación o rechazo",
+    "suggestedAlternative": "Hora alternativa sugerida (YYYY-MM-DD HH:MM)" o null
   }`,
 });
 

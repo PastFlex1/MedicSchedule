@@ -7,11 +7,11 @@ export async function handleAppointmentRequest(
   appointmentDetails: { appointmentDate: string; appointmentTime: string; doctorName: string; }
 ): Promise<ConfirmAppointmentOutput> {
   const availabilityCalendar = `
-    Doctor Availability Calendar:
-    - Dr. Sarah Johnson: Available on 2024-10-26 from 09:00 to 12:00 and 14:00 to 17:00. Unavailable on weekends.
-    - Dr. Mark Smith: Available on 2024-10-28 from 10:00 to 13:00.
-    - Dr. Emily White: Fully booked for the next two weeks.
-    - Dr. David Chen: Available on 2024-10-26 from 10:00 to 15:00.
+    Calendario de Disponibilidad de Doctores:
+    - Dra. Sarah Johnson: Disponible el 2024-10-26 de 09:00 a 12:00 y de 14:00 a 17:00. No disponible los fines de semana.
+    - Dr. Mark Smith: Disponible el 2024-10-28 de 10:00 a 13:00.
+    - Dra. Emily White: Agenda completa para las próximas dos semanas.
+    - Dr. David Chen: Disponible el 2024-10-26 de 10:00 a 15:00.
   `;
 
   const input: ConfirmAppointmentInput = {
@@ -24,10 +24,10 @@ export async function handleAppointmentRequest(
     const result = await confirmAppointment(input);
     return result;
   } catch (error) {
-    console.error("Error calling AI flow:", error);
+    console.error("Error al llamar al flujo de IA:", error);
     return {
       confirmationStatus: false,
-      reason: "An internal error occurred. Please try again later.",
+      reason: "Ocurrió un error interno. Por favor, inténtelo de nuevo más tarde.",
     };
   }
 }
