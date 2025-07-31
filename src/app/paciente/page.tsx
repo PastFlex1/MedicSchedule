@@ -61,14 +61,14 @@ const doctors: Doctor[] = [
 ];
 
 const appointmentSlots: AppointmentSlotType[] = [
-  { id: '101', date: new Date('2024-10-26T09:00:00'), doctorId: '1' },
-  { id: '102', date: new Date('2024-10-26T09:30:00'), doctorId: '1' },
-  { id: '103', date: new Date('2024-10-26T10:00:00'), doctorId: '4' },
-  { id: '104', date: new Date('2024-10-26T11:00:00'), doctorId: '4' },
-  { id: '105', date: new Date('2024-10-28T10:00:00'), doctorId: '2' },
-  { id: '106', date: new Date('2024-10-28T10:30:00'), doctorId: '2' },
-  { id: '107', date: new Date('2024-10-26T14:00:00'), doctorId: '1' },
-  { id: '108', date: new Date('2024-10-28T11:30:00'), doctorId: '2' },
+  { id: '101', date: new Date(2024, 9, 26, 9, 0, 0), doctorId: '1' }, // October is month 9 (0-indexed)
+  { id: '102', date: new Date(2024, 9, 26, 9, 30, 0), doctorId: '1' },
+  { id: '103', date: new Date(2024, 9, 26, 10, 0, 0), doctorId: '4' },
+  { id: '104', date: new Date(2024, 9, 26, 11, 0, 0), doctorId: '4' },
+  { id: '105', date: new Date(2024, 9, 28, 10, 0, 0), doctorId: '2' },
+  { id: '106', date: new Date(2024, 9, 28, 10, 30, 0), doctorId: '2' },
+  { id: '107', date: new Date(2024, 9, 26, 14, 0, 0), doctorId: '1' },
+  { id: '108', date: new Date(2024, 9, 28, 11, 30, 0), doctorId: '2' },
 ];
 
 
