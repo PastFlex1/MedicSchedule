@@ -66,7 +66,7 @@ const confirmAppointmentFlow = ai.defineFlow(
     outputSchema: ConfirmAppointmentOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
+    const {output} = await prompt(input, {model: 'googleai/gemini-1.5-flash-latest'});
     return output!;
   }
 );
