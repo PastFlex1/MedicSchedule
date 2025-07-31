@@ -16,3 +16,7 @@ export interface AppointmentSlot {
   date: Date;
   doctorId: string;
 }
+
+export interface BookedAppointment extends AppointmentSlot {
+  doctor: Doctor;
+}

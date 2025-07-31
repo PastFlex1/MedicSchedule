@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Loader2, CheckCircle2, XCircle, Calendar, Clock, icons } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Calendar as CalendarIcon, Clock, icons } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -49,7 +50,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { Doctor, AppointmentSlot, IconName } from "@/lib/types";
+import type { Doctor, AppointmentSlot, IconName, BookedAppointment } from "@/lib/types";
 import { handleAppointmentRequest } from "./actions";
 import type { ConfirmAppointmentOutput } from "@/ai/flows/smart-appointment-confirmation";
 
@@ -60,11 +61,7 @@ const formSchema = z.object({
   requirements: z.string().optional(),
 });
 
-type DoctorCardProps = {
-  doctor: Doctor;
-} & ComponentProps<typeof Card>;
-
-function DoctorCard({ doctor, className, ...props }: DoctorCardProps) {
+function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & ComponentProps<typeof Card>) {
   const IconComponent = icons[doctor.icon];
 
   return (
@@ -87,17 +84,11 @@ function DoctorCard({ doctor, className, ...props }: DoctorCardProps) {
   );
 }
 
-type AppointmentCardProps = {
-  slot: AppointmentSlot;
-  doctor?: Doctor;
-  onBook: () => void;
-} & ComponentProps<typeof Card>;
-
-function AppointmentCard({ slot, doctor, onBook, className, ...props }: AppointmentCardProps) {
+function AppointmentCard({ slot, doctor, onBook, className, ...props }: { slot: AppointmentSlot; doctor?: Doctor; onBook: () => void; } & ComponentProps<typeof Card>) {
   return (
     <Card className={cn("transition-all duration-300 hover:shadow-lg hover:border-primary/50", className)} {...props}>
       <CardHeader>
-        <CardTitle className="font-headline text-lg flex items-center gap-2 capitalize"><Calendar className="h-5 w-5 text-primary" /> {format(slot.date, "EEEE, d 'de' MMMM", { locale: es })}</CardTitle>
+        <CardTitle className="font-headline text-lg flex items-center gap-2 capitalize"><CalendarIcon className="h-5 w-5 text-primary" /> {format(slot.date, "EEEE, d 'de' MMMM", { locale: es })}</CardTitle>
         <CardDescription className="flex items-center gap-2"><Clock className="h-5 w-5 text-muted-foreground" /> {format(slot.date, "p", { locale: es })}</CardDescription>
       </CardHeader>
       {doctor && (
@@ -124,9 +115,13 @@ function AppointmentCard({ slot, doctor, onBook, className, ...props }: Appointm
 export function AppointmentBooking({
   doctors,
   appointmentSlots,
+  onAppointmentBooked,
+  bookedAppointments = [],
 }: {
   doctors: Doctor[];
   appointmentSlots: AppointmentSlot[];
+  onAppointmentBooked: (appointment: BookedAppointment) => void;
+  bookedAppointments: BookedAppointment[];
 }) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -166,11 +161,17 @@ export function AppointmentBooking({
       setConfirmationResult(result);
       setFormOpen(false);
       setConfirmationOpen(true);
+
+      if (result.confirmationStatus) {
+        onAppointmentBooked({ ...selectedSlot, doctor });
+      }
+
       form.reset();
     });
   };
 
   const doctorMap = new Map(doctors.map(doc => [doc.id, doc]));
+  const bookedDates = bookedAppointments.map(a => a.date);
 
   return (
     <div className="space-y-16">
@@ -183,6 +184,47 @@ export function AppointmentBooking({
           ))}
         </div>
       </section>
+
+      {bookedAppointments.length > 0 && (
+          <section id="pending-appointments" className="text-center">
+              <h2 className="text-3xl font-bold font-headline mb-2">Mis Citas Pendientes</h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Aquí puede ver sus próximas citas. Recibirá una notificación cuando el doctor las confirme.</p>
+              <div className="grid md:grid-cols-2 gap-8 items-start">
+                  <div className="flex justify-center">
+                      <Calendar
+                          mode="multiple"
+                          selected={bookedDates}
+                          className="rounded-md border"
+                          locale={es}
+                      />
+                  </div>
+                  <div className="space-y-4">
+                      {bookedAppointments.sort((a, b) => a.date.getTime() - b.date.getTime()).map(appointment => (
+                          <Card key={appointment.id} className="text-left">
+                              <CardHeader>
+                                  <CardTitle className="text-lg">
+                                      Cita con {appointment.doctor.name}
+                                  </CardTitle>
+                                  <CardDescription>
+                                      {appointment.doctor.specialty}
+                                  </CardDescription>
+                              </CardHeader>
+                              <CardContent className="flex items-center gap-4">
+                                  <div className="flex items-center gap-2">
+                                    <CalendarIcon className="h-5 w-5 text-primary" /> 
+                                    <span>{format(appointment.date, "EEEE, d 'de' MMMM", { locale: es })}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="h-5 w-5 text-muted-foreground" />
+                                    <span>{format(appointment.date, "p", { locale: es })}</span>
+                                  </div>
+                              </CardContent>
+                          </Card>
+                      ))}
+                  </div>
+              </div>
+          </section>
+      )}
 
       <section id="appointments" className="text-center">
         <h2 className="text-3xl font-bold font-headline mb-2">Citas Disponibles</h2>
@@ -272,7 +314,7 @@ export function AppointmentBooking({
                 {confirmationResult.confirmationStatus ? '¡Cita Confirmada!' : 'Estado de la Solicitud'}
               </AlertDialogTitle>
               <AlertDialogDescription className="pt-4 space-y-2">
-                {confirmationResult.reason}
+                <div>{confirmationResult.reason}</div>
                 {confirmationResult.confirmationStatus && selectedSlot && (
                   <div className="p-4 bg-muted/50 rounded-lg text-foreground">
                     <p><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</p>
