@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Smart Appointment Confirmation AI agent.
@@ -7,7 +8,6 @@
  * - ConfirmAppointmentOutput - The return type for the confirmAppointment function.
  */
 
-import {z} from 'zod';
 import type { ConfirmAppointmentInput, ConfirmAppointmentOutput } from '@/lib/types';
 
 
@@ -18,6 +18,8 @@ export async function confirmAppointment(input: ConfirmAppointmentInput): Promis
   // The AI flow has been disabled as per user request.
   return Promise.resolve({
     confirmationStatus: true,
-    reason: "Su cita ha sido confirmada. Le enviaremos un recordatorio.",
+    reason: "Su solicitud ha sido enviada. El doctor la revisará y recibirá una notificación cuando sea aprobada.",
   });
 }
+
+    

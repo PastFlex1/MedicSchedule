@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition, type ComponentProps, createElement } from "react";
@@ -7,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Loader2, CheckCircle2, XCircle, Calendar as CalendarIcon, Clock, icons } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Calendar as CalendarIcon, Clock, icons, Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -210,7 +211,7 @@ export function AppointmentBooking({
                               </CardHeader>
                               <CardContent className="flex items-center gap-4">
                                   <div className="flex items-center gap-2">
-                                    <CalendarIcon className="h-5 w-5 text-primary" /> 
+                                    <CalendarIcon className="h-5 w-5 text-primary" />
                                     <span>{format(appointment.date, "EEEE, d 'de' MMMM", { locale: es })}</span>
                                   </div>
                                   <div className="flex items-center gap-2">
@@ -227,7 +228,7 @@ export function AppointmentBooking({
 
       <section id="appointments" className="text-center">
         <h2 className="text-3xl font-bold font-headline mb-2">Citas Disponibles</h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elija un horario que le convenga. Nuestro asistente de IA confirmará su reserva.</p>
+        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elija un horario que le convenga. Su solicitud será enviada al doctor para su aprobación.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {appointmentSlots.map(slot => (
             <AppointmentCard
@@ -310,7 +311,7 @@ export function AppointmentBooking({
                 ) : (
                   <XCircle className="h-6 w-6 text-destructive" />
                 )}
-                {confirmationResult.confirmationStatus ? '¡Cita Confirmada!' : 'Estado de la Solicitud'}
+                  Solicitud Enviada
               </AlertDialogTitle>
               <AlertDialogDescription className="pt-4 space-y-2">
                 <span>{confirmationResult.reason}</span>
@@ -319,13 +320,7 @@ export function AppointmentBooking({
                     <div><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</div>
                     <div><strong>Fecha:</strong> {format(selectedSlot.date, "EEEE, d 'de' MMMM, yyyy", { locale: es })}</div>
                     <div><strong>Hora:</strong> {format(selectedSlot.date, "p", { locale: es })}</div>
-                    <p className="text-sm mt-2 text-muted-foreground">Recibirá un correo electrónico/SMS con los detalles de su cita en breve.</p>
                   </div>
-                )}
-                {!confirmationResult.confirmationStatus && confirmationResult.suggestedAlternative && (
-                  <p>
-                    <strong>Alternativa Sugerida:</strong> {confirmationResult.suggestedAlternative}
-                  </p>
                 )}
               </AlertDialogDescription>
             </AlertDialogHeader>
