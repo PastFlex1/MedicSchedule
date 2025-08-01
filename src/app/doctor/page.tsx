@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Stethoscope, LogOut, User, Calendar, Clock, Check, X, AlertCircle, PartyPopper, Loader2, PlusCircle, Trash2 } from 'lucide-react';
@@ -36,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 
 function Header() {
@@ -60,19 +61,11 @@ function Header() {
 }
 
 function SlotManager({ doctorId }: { doctorId: string | undefined }) {
-    const [date, setDate] = useState<Date | undefined>();
+    const [date, setDate] = useState<Date | undefined>(new Date());
     const [time, setTime] = useState("09:00");
     const [availableSlots, setAvailableSlots] = useState<AppointmentSlot[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
-
-    useEffect(() => {
-        // Set the initial date on the client to avoid hydration mismatch
-        if (!date) {
-          setDate(new Date());
-        }
-    }, [date]);
-
 
     useEffect(() => {
         if (!date || !doctorId) {
@@ -290,8 +283,7 @@ export default function DoctorPage() {
     return approvedAppointments.some(
       approved => approved.appointmentDate.getTime() === pendingAppointment.appointmentDate.getTime()
     );
-  }
-
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -468,7 +460,7 @@ export default function DoctorPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>No, mantener cita</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirmCancel} disabled={isCancelling} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    <AlertDialogAction onClick={handleConfirmCancel} disabled={isCancelling} className={cn(buttonVariants({ variant: "destructive" }))}>
                        {isCancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                        Sí, cancelar
                     </AlertDialogAction>
@@ -500,5 +492,4 @@ export default function DoctorPage() {
 
     </div>
   );
-
-    
+}
