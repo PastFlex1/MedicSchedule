@@ -1,24 +1,24 @@
 
 'use server';
 /**
- * @fileOverview Smart Appointment Confirmation AI agent.
+ * @fileOverview Flujo para la confirmación inteligente de citas.
  *
- * - confirmAppointment - A function that handles the appointment confirmation process.
- * - ConfirmAppointmentInput - The input type for the confirmAppointment function.
- * - ConfirmAppointmentOutput - The return type for the confirmAppointment function.
+ * - confirmAppointment - Maneja el proceso de confirmación de citas.
+ * - ConfirmAppointmentInput - El tipo de entrada para la función confirmAppointment.
+ * - ConfirmAppointmentOutput - El tipo de retorno para la función confirmAppointment.
  */
 
 import type { ConfirmAppointmentInput, ConfirmAppointmentOutput } from '@/lib/types';
 
 
-// Note: This file is not currently used but is kept for potential future AI integration.
+// Nota: Este archivo no se usa actualmente, pero se mantiene para una posible integración futura.
+// La lógica de IA ha sido deshabilitada según la solicitud.
 
 export async function confirmAppointment(input: ConfirmAppointmentInput): Promise<ConfirmAppointmentOutput> {
-  // This is a placeholder for local confirmation logic.
-  // The AI flow has been disabled as per user request.
+  // Esta es una lógica de marcador de posición para la confirmación local.
   return Promise.resolve({
     confirmationStatus: true,
-    reason: "Su solicitud ha sido enviada. El doctor la revisará y recibirá una notificación cuando sea aprobada.",
+    reason: "Tu solicitud ha sido enviada. El doctor la revisará y recibirás una notificación cuando sea aprobada.",
   });
 }
 

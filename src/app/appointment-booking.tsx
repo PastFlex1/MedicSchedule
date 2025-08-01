@@ -61,7 +61,7 @@ import { ToothIcon } from "@/components/icons/tooth-icon";
 
 const formSchema = z.object({
   patientName: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
-  contactNumber: z.string().min(9, { message: "Por favor, ingrese un número de contacto válido." }),
+  contactNumber: z.string().min(9, { message: "Por favor, ingresa un número de contacto válido." }),
   requirements: z.string().optional(),
 });
 
@@ -77,7 +77,7 @@ function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & Compon
   return (
     <Card className={cn("flex flex-col text-center items-center p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1", className)} {...props}>
       <Avatar className="w-24 h-24 mb-4 border-4 border-primary/20">
-        <AvatarImage src={doctor.avatarUrl} alt={doctor.name} data-ai-hint={doctor.dataAiHint} />
+        <AvatarImage src={doctor.avatarUrl} alt={doctor.name} />
         <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
       </Avatar>
       <CardHeader className="p-0 mb-2">
@@ -117,7 +117,7 @@ function AppointmentCard({ slot, doctor, onBook, className, ...props }: { slot: 
         <CardContent>
           <div className="flex items-center gap-3">
             <Avatar className="w-10 h-10">
-              <AvatarImage src={doctor.avatarUrl} alt={doctor.name} data-ai-hint={doctor.dataAiHint} />
+              <AvatarImage src={doctor.avatarUrl} alt={doctor.name} />
               <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div>
@@ -193,7 +193,7 @@ export function AppointmentBooking({
       setConfirmationOpen(true);
 
       if (result.confirmationStatus) {
-        // Remove the booked slot from the available slots in Firestore
+        // Elimina el horario reservado de Firestore
         const slotDocRef = doc(db, 'appointmentSlots', selectedSlot.id);
         await deleteDoc(slotDocRef);
         onAppointmentBooked(selectedSlot.id);
@@ -254,7 +254,7 @@ export function AppointmentBooking({
     <div className="space-y-16">
       <section id="doctors" className="text-center">
         <h2 className="text-3xl font-bold font-headline mb-2">Nuestros Especialistas</h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Conozca a nuestro equipo de profesionales médicos dedicados y experimentados.</p>
+        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Conoce a nuestro equipo de profesionales médicos, dedicados y con experiencia.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {doctors.map(doctor => (
             <DoctorCard key={doctor.id} doctor={doctor} />
@@ -266,7 +266,7 @@ export function AppointmentBooking({
           <section id="my-appointments">
               <div className="text-center">
                  <h2 className="text-3xl font-bold font-headline mb-2">Mis Citas</h2>
-                 <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Aquí puede ver sus próximas citas y su estado.</p>
+                 <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Aquí puedes ver tus próximas citas y su estado.</p>
               </div>
               <div className="grid md:grid-cols-2 gap-8 items-start">
                   <div className="flex justify-center">
@@ -322,7 +322,7 @@ export function AppointmentBooking({
 
                       {rescheduleRequestedAppointments.length > 0 && (
                            <div>
-                              <h3 className="text-xl font-semibold mb-4 text-blue-600">Solicitudes de Reprogramación</h3>
+                              <h3 className="text-xl font-semibold mb-4 text-blue-600">Solicitudes para Reprogramar</h3>
                               <div className="space-y-4">
                                   {rescheduleRequestedAppointments.sort((a, b) => a.date.getTime() - b.date.getTime()).map(appointment => (
                                       <Card key={appointment.id} className="text-left bg-blue-500/10 border-blue-500/20">
@@ -332,7 +332,7 @@ export function AppointmentBooking({
                                                   <Badge variant="secondary" className="bg-blue-500 text-white">Reprogramación Solicitada</Badge>
                                               </CardTitle>
                                                <CardDescription className="text-blue-900/80">
-                                                  El doctor revisará su solicitud pronto.
+                                                  El doctor revisará tu solicitud pronto.
                                               </CardDescription>
                                           </CardHeader>
                                           <CardContent className="flex items-center gap-4">
@@ -394,7 +394,7 @@ export function AppointmentBooking({
 
       <section id="appointments" className="text-center">
         <h2 className="text-3xl font-bold font-headline mb-2">Citas Disponibles</h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elija un horario que le convenga. Su cita se confirmará instantáneamente.</p>
+        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elige un horario que te convenga. Tu cita será confirmada al instante.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {appointmentSlots.map(slot => (
             <AppointmentCard
@@ -412,7 +412,7 @@ export function AppointmentBooking({
           <DialogHeader>
             <DialogTitle>Confirmar Cita</DialogTitle>
             <DialogDescription>
-              Por favor, complete sus datos para confirmar su cita para el {selectedSlot && format(selectedSlot.date, "d 'de' MMMM, yyyy 'a las' p", { locale: es })}.
+              Completa tus datos para confirmar la cita para el {selectedSlot && format(selectedSlot.date, "d 'de' MMMM, yyyy 'a las' p", { locale: es })}.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -448,9 +448,9 @@ export function AppointmentBooking({
                 name="requirements"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Requisitos Específicos (Opcional)</FormLabel>
+                    <FormLabel>Necesidades Específicas (Opcional)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Ej: acceso para silla de ruedas, inquietudes específicas" {...field} />
+                      <Textarea placeholder="Ej: acceso para silla de ruedas, alergias..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -477,7 +477,7 @@ export function AppointmentBooking({
                 ) : (
                   <XCircle className="h-6 w-6 text-destructive" />
                 )}
-                  {confirmationResult.confirmationStatus ? "Cita Confirmada" : "Error"}
+                  {confirmationResult.confirmationStatus ? "Solicitud Enviada" : "Error"}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {confirmationResult.reason}
@@ -508,7 +508,7 @@ export function AppointmentBooking({
                         Confirmar Cancelación
                     </AlertDialogTitle>
                     <AlertDialogDescription className="pt-4">
-                        ¿Está seguro de que desea cancelar su cita con <strong>{appointmentToCancel.doctor.name}</strong> para el <strong>{format(appointmentToCancel.date, "d 'de' MMMM 'a las' p", { locale: es })}</strong>? Esta acción no se puede deshacer.
+                        ¿Seguro que quieres cancelar tu cita con <strong>{appointmentToCancel.doctor.name}</strong> para el <strong>{format(appointmentToCancel.date, "d 'de' MMMM 'a las' p", { locale: es })}</strong>? Esta acción no se puede deshacer.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -531,7 +531,7 @@ export function AppointmentBooking({
                         Confirmar Solicitud para Posponer
                     </AlertDialogTitle>
                     <AlertDialogDescription className="pt-4">
-                        ¿Está seguro de que desea solicitar posponer su cita con <strong>{appointmentToPostpone.doctor.name}</strong>? El doctor revisará su solicitud y se le notificará si es aprobada.
+                        ¿Seguro que quieres solicitar posponer tu cita con <strong>{appointmentToPostpone.doctor.name}</strong>? El doctor revisará tu solicitud y te notificará si es aprobada.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -549,4 +549,5 @@ export function AppointmentBooking({
   );
 
     
+
 

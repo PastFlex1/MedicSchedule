@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,32 +24,32 @@ export default function Home() {
         <div className="text-center">
           <h2 className="text-4xl font-bold font-headline mb-4">Bienvenido a MediSchedule</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
-            Su asistente inteligente para la gestión de citas médicas. Inicie sesión para comenzar.
+            Tu asistente para la gestión de citas médicas. Inicia sesión para comenzar.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><User className="text-primary"/> Para Pacientes</CardTitle>
-                <CardDescription>Encuentre especialistas y reserve su cita en segundos.</CardDescription>
+                <CardDescription>Encuentra especialistas y reserva tu cita en segundos.</CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="list-disc list-inside text-left text-sm text-muted-foreground space-y-2">
-                  <li>Busque doctores por especialidad.</li>
-                  <li>Vea los horarios disponibles en tiempo real.</li>
-                  <li>Reciba confirmaciones inteligentes de su cita.</li>
+                  <li>Busca doctores por especialidad.</li>
+                  <li>Ve los horarios disponibles en tiempo real.</li>
+                  <li>Recibe confirmaciones de tu cita.</li>
                 </ul>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Stethoscope className="text-primary"/> Para Doctores</CardTitle>
-                <CardDescription>Gestione su agenda y confirme citas de forma eficiente.</CardDescription>
+                <CardDescription>Gestiona tu agenda y confirma citas de forma eficiente.</CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="list-disc list-inside text-left text-sm text-muted-foreground space-y-2">
-                  <li>Revise las solicitudes de citas pendientes.</li>
-                  <li>Confirme o sugiera nuevos horarios con un solo clic.</li>
-                  <li>Optimice la gestión de su calendario.</li>
+                  <li>Revisa las solicitudes de citas pendientes.</li>
+                  <li>Confirma o sugiere nuevos horarios con un solo clic.</li>
+                  <li>Optimiza la gestión de tu calendario.</li>
                 </ul>
               </CardContent>
             </Card>
@@ -63,3 +64,4 @@ export default function Home() {
     </div>
   );
 }
+

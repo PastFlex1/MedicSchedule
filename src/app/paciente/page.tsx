@@ -17,42 +17,36 @@ const initialDoctors: Omit<Doctor, 'id'>[] = [
     specialty: 'Cardiología',
     avatarUrl: 'https://images.pexels.com/photos/5206931/pexels-photo-5206931.jpeg',
     icon: 'HeartPulse',
-    dataAiHint: 'doctor portrait',
   },
   {
     name: 'Dr. Mark Smith',
     specialty: 'Ortopedia',
     avatarUrl: 'https://images.pexels.com/photos/5452293/pexels-photo-5452293.jpeg',
     icon: 'ClipboardPen',
-    dataAiHint: 'doctor portrait',
   },
   {
     name: 'Dra. Emily White',
     specialty: 'Neurología',
     avatarUrl: 'https://images.pexels.com/photos/32115955/pexels-photo-32115955.jpeg',
     icon: 'Brain',
-    dataAiHint: 'doctor portrait',
   },
   {
     name: 'Dr. David Chen',
     specialty: 'Medicina General',
     avatarUrl: 'https://images.pexels.com/photos/5452298/pexels-photo-5452298.jpeg',
     icon: 'Stethoscope',
-    dataAiHint: 'doctor portrait',
   },
   {
     name: 'Dra. Ana Pérez',
     specialty: 'Odontología',
     avatarUrl: 'https://images.pexels.com/photos/7578810/pexels-photo-7578810.jpeg',
-    icon: 'ToothIcon', 
-    dataAiHint: 'dentist portrait',
+    icon: 'ToothIcon',
   },
   {
     name: 'Dra. Mónica Tapia',
     specialty: 'Obstetricia',
     avatarUrl: 'https://images.pexels.com/photos/6011604/pexels-photo-6011604.jpeg',
     icon: 'PersonStanding',
-    dataAiHint: 'doctor portrait woman',
   },
 ];
 
@@ -120,8 +114,8 @@ export default function PatientPage() {
   const [bookedAppointments, setBookedAppointments] = useState<BookedAppointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // This is a temporary user ID for demonstration purposes.
-  // In a real app, you would get this from your authentication system.
+  // ID de usuario para demostración.
+  // En una app real, se obtendría del sistema de autenticación.
   const FAKE_USER_ID = "patient123";
 
   useEffect(() => {
@@ -130,7 +124,7 @@ export default function PatientPage() {
       
       const doctorsCol = collection(db, 'doctors');
       
-      // --- Force update doctors from initialDoctors array ---
+      // Fuerza la actualización de los doctores desde el array `initialDoctors`.
       const batch = writeBatch(db);
       const finalDoctorList: Doctor[] = [];
       for (let i = 0; i < initialDoctors.length; i++) {
@@ -142,12 +136,11 @@ export default function PatientPage() {
       }
       await batch.commit();
       
-      // Set the state with the most up-to-date doctor list
       setDoctors(finalDoctorList);
       
       const doctorMap = new Map(finalDoctorList.map(doc => [doc.id, doc]));
 
-      // Fetch or seed slots
+      // Carga o siembra los horarios disponibles.
       const slotsCol = collection(db, 'appointmentSlots');
       const slotSnapshot = await getDocs(slotsCol);
       if (slotSnapshot.empty) {
@@ -157,7 +150,7 @@ export default function PatientPage() {
         }
       } 
       
-      // We are going to listen for slot changes in real time
+      // Escucha los cambios en los horarios en tiempo real.
       const unsubscribeSlots = onSnapshot(slotsCol, (snapshot) => {
         const slotList = snapshot.docs.map(doc => {
             const data = doc.data();
@@ -166,7 +159,7 @@ export default function PatientPage() {
         setAppointmentSlots(slotList);
       });
 
-      // Listen for changes in the user's appointments
+      // Escucha los cambios en las citas del usuario.
         const q = query(collection(db, "appointments"), where("patientId", "==", FAKE_USER_ID));
         const unsubscribeAppointments = onSnapshot(q, (querySnapshot) => {
           const appointments: BookedAppointment[] = [];
@@ -198,8 +191,8 @@ export default function PatientPage() {
 
 
   const handleAppointmentBooked = (slotId: string) => {
-    // This is now handled by real-time listeners, but we can still force a local state update
-    // for a more snappy UI if needed, though it's not strictly necessary with onSnapshot.
+    // La UI se actualiza automáticamente gracias a los listeners en tiempo real,
+    // pero se podría forzar una actualización local del estado si fuera necesario.
     setAppointmentSlots(prevSlots => prevSlots.filter(slot => slot.id !== slotId));
   };
 
@@ -236,3 +229,4 @@ export default function PatientPage() {
     </div>
   );
 }
+

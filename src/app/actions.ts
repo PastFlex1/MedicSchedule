@@ -13,8 +13,8 @@ export async function handleAppointmentRequest(
   const { patientId, doctor, appointmentDate } = appointmentDetails;
 
   try {
-    // Note: The status is set to 'pending' to require doctor's approval.
-    // Change to 'approved' for instant confirmation.
+    // El estado se establece en 'pending' para requerir la aprobación del doctor.
+    // Se puede cambiar a 'approved' para una confirmación instantánea.
     await addDoc(collection(db, "appointments"), {
         ...formData,
         appointmentDate: Timestamp.fromDate(appointmentDate),
@@ -23,21 +23,21 @@ export async function handleAppointmentRequest(
             name: doctor.name,
             specialty: doctor.specialty
         },
-        patientId: patientId, // In a real app, this would be the authenticated user's ID
+        patientId: patientId, // En una app real, este sería el ID del usuario autenticado
         status: 'pending', 
         createdAt: Timestamp.now()
     });
     
     return {
         confirmationStatus: true,
-        reason: "Su solicitud ha sido enviada. El doctor la revisará y recibirá una notificación cuando sea aprobada.",
+        reason: "Tu solicitud ha sido enviada. El doctor la revisará y recibirás una notificación cuando sea aprobada.",
     };
 
   } catch (error) {
     console.error("Error creating appointment request:", error);
     return {
       confirmationStatus: false,
-      reason: "Ocurrió un error al procesar su solicitud. Por favor, inténtelo de nuevo más tarde.",
+      reason: "Ocurrió un error al procesar tu solicitud. Por favor, inténtalo de nuevo más tarde.",
     };
   }
 }
@@ -49,16 +49,16 @@ export async function handleCancelAppointment(appointmentId: string, doctorId: s
   }
 
   try {
-    // 1. Delete the appointment document
+    // 1. Eliminar el documento de la cita
     const appointmentRef = doc(db, 'appointments', appointmentId);
     await deleteDoc(appointmentRef);
 
-    // 2. Re-create the available slot
-    // This creates a unique ID based on doctor and time to prevent duplicates
+    // 2. Volver a crear el horario disponible
+    // Esto crea un ID único basado en el doctor y la hora para evitar duplicados
     const slotId = `${doctorId}_${appointmentDate.toISOString()}`;
     const slotRef = doc(db, "appointmentSlots", slotId);
     
-    // Check if the slot already exists to avoid accidental overwrites
+    // Comprobar si el horario ya existe para evitar sobreescrituras accidentales
     const slotSnap = await getDoc(slotRef);
     if (!slotSnap.exists()) {
        await setDoc(slotRef, {
@@ -123,10 +123,10 @@ export async function handleRequestReschedule(appointmentId: string): Promise<{ 
     try {
         const appointmentRef = doc(db, 'appointments', appointmentId);
         await updateDoc(appointmentRef, { status: 'reschedule-requested' });
-        return { success: true, message: "Su solicitud para posponer la cita ha sido enviada al doctor." };
+        return { success: true, message: "Tu solicitud para posponer la cita ha sido enviada al doctor." };
     } catch (error) {
         console.error("Error requesting reschedule:", error);
-        return { success: false, message: "Ocurrió un error al enviar su solicitud." };
+        return { success: false, message: "Ocurrió un error al enviar tu solicitud." };
     }
 }
 
@@ -146,3 +146,4 @@ export async function handleReschedule(appointmentId: string, newDate: Date): Pr
         return { success: false, message: "Ocurrió un error al reagendar la cita." };
     }
 }
+

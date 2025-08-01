@@ -10,7 +10,6 @@ export interface Doctor {
   specialty: string;
   avatarUrl: string;
   icon: IconName;
-  dataAiHint: string;
 }
 
 export interface AppointmentSlot {
@@ -19,9 +18,9 @@ export interface AppointmentSlot {
   doctorId: string;
 }
 
-// This represents the data structure in Firestore
+// Representa la estructura de datos en Firestore
 export interface Appointment {
-  id?: string; // Firestore document ID
+  id?: string; // ID del documento en Firestore
   patientName: string;
   patientId: string;
   contactNumber: string;
@@ -59,3 +58,4 @@ export interface ConfirmAppointmentOutput {
   reason: string;
   suggestedAlternative?: string;
 }
+
