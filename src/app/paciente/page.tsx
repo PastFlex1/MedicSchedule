@@ -23,7 +23,7 @@ const initialDoctors: Omit<Doctor, 'id'>[] = [
     name: 'Dr. Mark Smith',
     specialty: 'Ortopedia',
     avatarUrl: 'https://placehold.co/100x100.png',
-    icon: 'Bone',
+    icon: 'ClipboardPen',
     dataAiHint: 'doctor portrait',
   },
   {
@@ -44,14 +44,14 @@ const initialDoctors: Omit<Doctor, 'id'>[] = [
     name: 'Dra. Ana Pérez',
     specialty: 'Odontología',
     avatarUrl: 'https://placehold.co/100x100.png',
-    icon: 'Tooth', // Corrected icon
+    icon: 'Smile', 
     dataAiHint: 'dentist portrait',
   },
   {
     name: 'Dra. Mónica Tapia',
     specialty: 'Obstetricia',
     avatarUrl: 'https://placehold.co/100x100.png',
-    icon: 'PersonStanding', // Corrected icon
+    icon: 'PersonStanding',
     dataAiHint: 'doctor portrait woman',
   },
 ];
