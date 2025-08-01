@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Loader2, CheckCircle2, XCircle, Calendar as CalendarIcon, Clock, icons, Info } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Calendar as CalendarIcon, Clock, icons, Info, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,7 @@ import {
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -51,8 +52,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { Doctor, AppointmentSlot, IconName, BookedAppointment, ConfirmAppointmentOutput } from "@/lib/types";
-import { handleAppointmentRequest } from "./actions";
+import type { Doctor, AppointmentSlot, IconName, BookedAppointment, ConfirmAppointmentOutput, Appointment } from "@/lib/types";
+import { handleAppointmentRequest, handleCancelAppointment } from "./actions";
 import { collection, getDocs, doc, setDoc, query, where, deleteDoc } from 'firebase/firestore';
 import { db } from "@/lib/firebase";
 
@@ -90,11 +91,9 @@ function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & Compon
 }
 
 function AppointmentCard({ slot, doctor, onBook, className, ...props }: { slot: AppointmentSlot; doctor?: Doctor; onBook: () => void; } & ComponentProps<typeof Card>) {
-  // Ensure date is a valid Date object before formatting
   const date = slot.date instanceof Date ? slot.date : new Date(slot.date);
   
   if (isNaN(date.getTime())) {
-    // Handle invalid date gracefully
     return (
        <Card className={cn("transition-all duration-300 hover:shadow-lg hover:border-primary/50", className)} {...props}>
           <CardHeader>
@@ -151,6 +150,7 @@ export function AppointmentBooking({
   const [isFormOpen, setFormOpen] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmAppointmentOutput | null>(null);
   const [isConfirmationOpen, setConfirmationOpen] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<BookedAppointment | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -198,19 +198,31 @@ export function AppointmentBooking({
     });
   };
 
-  const doctorMap = new Map(doctors.map(doc => [doc.id, doc]));
-  const bookedDates = bookedAppointments.map(a => a.date);
+  const handleCancelClick = (appointment: BookedAppointment) => {
+    setAppointmentToCancel(appointment);
+  };
   
-  const availableSlots = appointmentSlots.filter(slot => 
-    !bookedAppointments.some(booked => {
-        // Ensure both dates are valid Date objects before comparing
-        const bookedDate = booked.date instanceof Date ? booked.date : new Date(booked.date);
-        const slotDate = slot.date instanceof Date ? slot.date : new Date(slot.date);
-        if (isNaN(bookedDate.getTime()) || isNaN(slotDate.getTime())) return false;
-        return bookedDate.getTime() === slotDate.getTime() && booked.doctorId === slot.doctorId;
-    })
-  );
+  const handleConfirmCancel = () => {
+    if (!appointmentToCancel) return;
 
+    startTransition(async () => {
+        const { success, message } = await handleCancelAppointment(appointmentToCancel.id, appointmentToCancel.doctorId, appointmentToCancel.date);
+        
+        toast({
+            title: success ? "Éxito" : "Error",
+            description: message,
+            variant: success ? "default" : "destructive",
+        });
+
+        setAppointmentToCancel(null);
+    });
+  };
+
+  const doctorMap = new Map(doctors.map(doc => [doc.id, doc]));
+  const allBookedDates = bookedAppointments.map(a => a.date);
+
+  const pendingAppointments = bookedAppointments.filter(a => a.status === 'pending');
+  const approvedAppointments = bookedAppointments.filter(a => a.status === 'approved');
 
   return (
     <div className="space-y-16">
@@ -224,42 +236,96 @@ export function AppointmentBooking({
         </div>
       </section>
 
-      {bookedAppointments.length > 0 && (
-          <section id="pending-appointments" className="text-center">
-              <h2 className="text-3xl font-bold font-headline mb-2">Mis Citas Confirmadas</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Aquí puede ver sus próximas citas confirmadas.</p>
+       {(approvedAppointments.length > 0 || pendingAppointments.length > 0) && (
+          <section id="my-appointments">
+              <div className="text-center">
+                 <h2 className="text-3xl font-bold font-headline mb-2">Mis Citas</h2>
+                 <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Aquí puede ver sus próximas citas y su estado.</p>
+              </div>
               <div className="grid md:grid-cols-2 gap-8 items-start">
                   <div className="flex justify-center">
                       <Calendar
                           mode="multiple"
-                          selected={bookedDates}
+                          selected={allBookedDates}
                           className="rounded-md border"
                           locale={es}
                       />
                   </div>
-                  <div className="space-y-4">
-                      {bookedAppointments.sort((a, b) => a.date.getTime() - b.date.getTime()).map(appointment => (
-                          <Card key={appointment.id} className="text-left">
-                              <CardHeader>
-                                  <CardTitle className="text-lg">
-                                      Cita con {appointment.doctor.name}
-                                  </CardTitle>
-                                  <CardDescription>
-                                      {appointment.doctor.specialty}
-                                  </CardDescription>
-                              </CardHeader>
-                              <CardContent className="flex items-center gap-4">
-                                  <div className="flex items-center gap-2">
-                                    <CalendarIcon className="h-5 w-5 text-primary" />
-                                    <span>{format(appointment.date, "EEEE, d 'de' MMMM", { locale: es })}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Clock className="h-5 w-5 text-muted-foreground" />
-                                    <span>{format(appointment.date, "p", { locale: es })}</span>
-                                  </div>
-                              </CardContent>
-                          </Card>
-                      ))}
+                  <div className="space-y-6">
+                      
+                      {approvedAppointments.length > 0 && (
+                          <div>
+                              <h3 className="text-xl font-semibold mb-4 text-green-600">Aprobadas</h3>
+                              <div className="space-y-4">
+                                {approvedAppointments.sort((a, b) => a.date.getTime() - b.date.getTime()).map(appointment => (
+                                      <Card key={appointment.id} className="text-left bg-green-500/10 border-green-500/20">
+                                          <CardHeader>
+                                              <CardTitle className="text-lg flex justify-between items-center">
+                                                  Cita con {appointment.doctor.name}
+                                                  <Badge variant="default" className="bg-green-600">Aprobada</Badge>
+                                              </CardTitle>
+                                              <CardDescription className="text-green-900/80">
+                                                  {appointment.doctor.specialty}
+                                              </CardDescription>
+                                          </CardHeader>
+                                          <CardContent className="flex items-center gap-4">
+                                              <div className="flex items-center gap-2">
+                                                <CalendarIcon className="h-5 w-5 text-green-700" />
+                                                <span>{format(appointment.date, "EEEE, d 'de' MMMM", { locale: es })}</span>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <Clock className="h-5 w-5 text-muted-foreground" />
+                                                <span>{format(appointment.date, "p", { locale: es })}</span>
+                                              </div>
+                                          </CardContent>
+                                          <CardFooter>
+                                             <Button variant="destructive" size="sm" onClick={() => handleCancelClick(appointment)} disabled={isPending}>
+                                                <Trash2 className="mr-2 h-4 w-4"/>
+                                                {isPending ? 'Cancelando...' : 'Cancelar Cita'}
+                                             </Button>
+                                          </CardFooter>
+                                      </Card>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
+
+                      {pendingAppointments.length > 0 && (
+                           <div>
+                              <h3 className="text-xl font-semibold mb-4 text-yellow-600">Pendientes de Aprobación</h3>
+                              <div className="space-y-4">
+                                  {pendingAppointments.sort((a, b) => a.date.getTime() - b.date.getTime()).map(appointment => (
+                                      <Card key={appointment.id} className="text-left bg-yellow-500/10 border-yellow-500/20">
+                                           <CardHeader>
+                                              <CardTitle className="text-lg flex justify-between items-center">
+                                                  Solicitud para {appointment.doctor.name}
+                                                  <Badge variant="secondary" className="bg-yellow-500 text-white">Pendiente</Badge>
+                                              </CardTitle>
+                                               <CardDescription className="text-yellow-900/80">
+                                                  {appointment.doctor.specialty}
+                                              </CardDescription>
+                                          </CardHeader>
+                                          <CardContent className="flex items-center gap-4">
+                                              <div className="flex items-center gap-2">
+                                                <CalendarIcon className="h-5 w-5 text-yellow-700" />
+                                                <span>{format(appointment.date, "EEEE, d 'de' MMMM", { locale: es })}</span>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <Clock className="h-5 w-5 text-muted-foreground" />
+                                                <span>{format(appointment.date, "p", { locale: es })}</span>
+                                              </div>
+                                          </CardContent>
+                                           <CardFooter>
+                                             <Button variant="destructive" size="sm" onClick={() => handleCancelClick(appointment)} disabled={isPending}>
+                                                <Trash2 className="mr-2 h-4 w-4"/>
+                                                {isPending ? 'Cancelando...' : 'Cancelar Solicitud'}
+                                             </Button>
+                                          </CardFooter>
+                                      </Card>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
                   </div>
               </div>
           </section>
@@ -267,9 +333,9 @@ export function AppointmentBooking({
 
       <section id="appointments" className="text-center">
         <h2 className="text-3xl font-bold font-headline mb-2">Citas Disponibles</h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elija un horario que le convenga para recibir confirmación inmediata.</p>
+        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elija un horario que le convenga. Su solicitud será enviada para aprobación del doctor.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {availableSlots.map(slot => (
+          {appointmentSlots.map(slot => (
             <AppointmentCard
               key={slot.id}
               slot={slot}
@@ -283,9 +349,9 @@ export function AppointmentBooking({
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Confirmar Cita</DialogTitle>
+            <DialogTitle>Solicitar Cita</DialogTitle>
             <DialogDescription>
-              Por favor, complete sus datos para confirmar su cita para el {selectedSlot && format(selectedSlot.date, "d 'de' MMMM, yyyy 'a las' p", { locale: es })}.
+              Por favor, complete sus datos para solicitar su cita para el {selectedSlot && format(selectedSlot.date, "d 'de' MMMM, yyyy 'a las' p", { locale: es })}.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -332,7 +398,7 @@ export function AppointmentBooking({
               <DialogFooter>
                 <Button type="submit" disabled={isPending}>
                   {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Confirmar Cita
+                  Enviar Solicitud
                 </Button>
               </DialogFooter>
             </form>
@@ -350,7 +416,7 @@ export function AppointmentBooking({
                 ) : (
                   <XCircle className="h-6 w-6 text-destructive" />
                 )}
-                  {confirmationResult.confirmationStatus ? "Cita Confirmada" : "Error"}
+                  {confirmationResult.confirmationStatus ? "Solicitud Enviada" : "Error"}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {confirmationResult.reason}
@@ -369,6 +435,29 @@ export function AppointmentBooking({
               <AlertDialogAction onClick={() => setConfirmationOpen(false)}>Cerrar</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {appointmentToCancel && (
+        <AlertDialog open={!!appointmentToCancel} onOpenChange={() => setAppointmentToCancel(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                        <Trash2 className="h-6 w-6 text-destructive" />
+                        Confirmar Cancelación
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="pt-4">
+                        ¿Está seguro de que desea cancelar su cita con <strong>{appointmentToCancel.doctor.name}</strong> para el <strong>{format(appointmentToCancel.date, "d 'de' MMMM 'a las' p", { locale: es })}</strong>? Esta acción no se puede deshacer.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>No, mantener cita</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleConfirmCancel} className={cn(buttonVariants({ variant: "destructive" }))}>
+                        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Sí, cancelar cita
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
         </AlertDialog>
       )}
     </div>

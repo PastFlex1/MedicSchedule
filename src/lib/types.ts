@@ -22,9 +22,10 @@ export interface AppointmentSlot {
 export interface Appointment {
   id?: string; // Firestore document ID
   patientName: string;
+  patientId: string;
   contactNumber: string;
   requirements?: string;
-  appointmentDate: Timestamp;
+  appointmentDate: Date | Timestamp;
   doctor: {
     id: string;
     name: string;
@@ -37,6 +38,7 @@ export interface Appointment {
 
 export interface BookedAppointment extends AppointmentSlot {
   doctor: Doctor;
+  status: 'pending' | 'approved' | 'cancelled';
 }
 
 export interface ConfirmAppointmentInput {

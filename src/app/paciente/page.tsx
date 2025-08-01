@@ -2,13 +2,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Doctor, Appointment, BookedAppointment, AppointmentSlot } from '@/lib/types';
+import type { Doctor, BookedAppointment, AppointmentSlot } from '@/lib/types';
 import { AppointmentBooking } from '../appointment-booking';
 import { Stethoscope, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, setDoc, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const initialDoctors: Omit<Doctor, 'id'>[] = [
@@ -42,15 +42,15 @@ const initialDoctors: Omit<Doctor, 'id'>[] = [
   },
 ];
 
-const initialAppointmentSlots: Omit<AppointmentSlot, 'id'>[] = [
+const initialAppointmentSlots: Omit<AppointmentSlot, 'id' | 'date'> & { date: Date }[] = [
     // Dr. Johnson
     { date: new Date(new Date().setHours(9, 0, 0, 0)), doctorId: '1' },
     { date: new Date(new Date().setHours(9, 30, 0, 0)), doctorId: '1' },
     { date: new Date(new Date().setHours(14, 0, 0, 0)), doctorId: '1' },
     // Dr. Smith
-    { date: new Date(new Date().setDate(new Date().getDate() + 2)), doctorId: '2' },
-    { date: new Date(new Date(new Date().setDate(new Date().getDate() + 2)).setHours(10, 30, 0, 0)), doctorId: '2' },
-    { date: new Date(new Date(new Date().setDate(new Date().getDate() + 2)).setHours(11, 30, 0, 0)), doctorId: '2' },
+    { date: new Date(new Date(new Date().setDate(new Date().getDate() + 1)).setHours(10, 0, 0, 0)), doctorId: '2' },
+    { date: new Date(new Date(new Date().setDate(new Date().getDate() + 1)).setHours(10, 30, 0, 0)), doctorId: '2' },
+    { date: new Date(new Date(new Date().setDate(new Date().getDate() + 1)).setHours(11, 30, 0, 0)), doctorId: '2' },
     // Dr. Chen
     { date: new Date(new Date().setHours(10, 0, 0, 0)), doctorId: '4' },
     { date: new Date(new Date().setHours(11, 0, 0, 0)), doctorId: '4' },
@@ -138,7 +138,7 @@ export default function PatientPage() {
       if (slotSnapshot.empty) {
         for (const slot of initialAppointmentSlots) {
           const slotId = `${slot.doctorId}_${slot.date.toISOString()}`;
-          await setDoc(doc(db, 'appointmentSlots', slotId), slot);
+          await setDoc(doc(db, 'appointmentSlots', slotId), { ...slot, date: Timestamp.fromDate(slot.date) });
         }
       } 
       
@@ -146,13 +146,13 @@ export default function PatientPage() {
       const unsubscribeSlots = onSnapshot(slotsCol, (snapshot) => {
         const slotList = snapshot.docs.map(doc => {
             const data = doc.data();
-            return { id: doc.id, ...data, date: data.date.toDate() } as AppointmentSlot;
+            return { id: doc.id, ...data, date: (data.date as Timestamp).toDate() } as AppointmentSlot;
         });
         setAppointmentSlots(slotList);
       });
 
       // Listen for changes in the user's appointments
-        const q = query(collection(db, "appointments"), where("patientId", "==", FAKE_USER_ID), where("status", "in", ["approved", "pending"]));
+        const q = query(collection(db, "appointments"), where("patientId", "==", FAKE_USER_ID));
         const unsubscribeAppointments = onSnapshot(q, (querySnapshot) => {
           const appointments: BookedAppointment[] = [];
           querySnapshot.forEach((doc) => {
@@ -161,9 +161,10 @@ export default function PatientPage() {
             if (doctor) {
                 appointments.push({
                     id: doc.id,
-                    date: data.appointmentDate.toDate(),
+                    date: (data.appointmentDate as Timestamp).toDate(),
                     doctorId: data.doctor.id,
                     doctor: doctor,
+                    status: data.status,
                 });
             }
           });
@@ -179,6 +180,13 @@ export default function PatientPage() {
     
     seedAndFetchData();
   }, []);
+
+
+  const handleAppointmentBooked = (slotId: string) => {
+    // This is now handled by real-time listeners, but we can still force a local state update
+    // for a more snappy UI if needed, though it's not strictly necessary with onSnapshot.
+    setAppointmentSlots(prevSlots => prevSlots.filter(slot => slot.id !== slotId));
+  };
 
 
   if (isLoading) {
@@ -200,9 +208,7 @@ export default function PatientPage() {
         <AppointmentBooking 
           doctors={doctors}
           appointmentSlots={appointmentSlots}
-          onAppointmentBooked={(slotId) => {
-            // The real-time listener will handle the update
-          }}
+          onAppointmentBooked={handleAppointmentBooked}
           bookedAppointments={bookedAppointments}
           patientId={FAKE_USER_ID}
         />
