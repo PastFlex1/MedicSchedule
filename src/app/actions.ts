@@ -1,8 +1,9 @@
+
 'use server';
 
 import type { ConfirmAppointmentOutput } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, Timestamp, doc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, deleteDoc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 
 export async function handleAppointmentRequest(
   formData: { patientName: string; contactNumber: string; requirements?: string },
@@ -113,4 +114,35 @@ export async function handleDeleteSlot(slotId: string): Promise<{ success: boole
     console.error("Error deleting slot:", error);
     return { success: false, message: "Ocurrió un error al eliminar el horario." };
   }
+}
+
+export async function handleRequestReschedule(appointmentId: string): Promise<{ success: boolean; message: string }> {
+    if (!appointmentId) {
+        return { success: false, message: "Falta el ID de la cita." };
+    }
+    try {
+        const appointmentRef = doc(db, 'appointments', appointmentId);
+        await updateDoc(appointmentRef, { status: 'reschedule-requested' });
+        return { success: true, message: "Su solicitud para posponer la cita ha sido enviada al doctor." };
+    } catch (error) {
+        console.error("Error requesting reschedule:", error);
+        return { success: false, message: "Ocurrió un error al enviar su solicitud." };
+    }
+}
+
+export async function handleReschedule(appointmentId: string, newDate: Date): Promise<{ success: boolean; message: string }> {
+    if (!appointmentId || !newDate) {
+        return { success: false, message: "Faltan datos para reagendar." };
+    }
+    try {
+        const appointmentRef = doc(db, 'appointments', appointmentId);
+        await updateDoc(appointmentRef, {
+            status: 'approved',
+            appointmentDate: Timestamp.fromDate(newDate)
+        });
+        return { success: true, message: "La cita ha sido reagendada exitosamente." };
+    } catch (error) {
+        console.error("Error rescheduling appointment:", error);
+        return { success: false, message: "Ocurrió un error al reagendar la cita." };
+    }
 }

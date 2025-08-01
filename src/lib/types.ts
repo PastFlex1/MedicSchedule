@@ -32,7 +32,7 @@ export interface Appointment {
     name: string;
     specialty: string;
   };
-  status: 'pending' | 'approved' | 'cancelled';
+  status: 'pending' | 'approved' | 'cancelled' | 'reschedule-requested';
   createdAt: Timestamp;
 }
 
@@ -42,7 +42,7 @@ export interface BookedAppointment {
   date: Date;
   doctorId: string;
   doctor: Doctor;
-  status: 'pending' | 'approved' | 'cancelled';
+  status: 'pending' | 'approved' | 'cancelled' | 'reschedule-requested';
 }
 
 export interface ConfirmAppointmentInput {

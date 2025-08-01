@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Stethoscope, LogOut, User, Calendar, Clock, Check, X, AlertCircle, PartyPopper, Loader2, PlusCircle, Trash2 } from 'lucide-react';
+import { Stethoscope, LogOut, User, Calendar, Clock, Check, X, AlertCircle, PartyPopper, Loader2, PlusCircle, Trash2, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -16,6 +16,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +39,7 @@ import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDoc
 import type { Appointment, AppointmentSlot, Doctor } from '@/lib/types';
 import { format, setHours, setMinutes, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { handleCancelAppointment, handleCreateSlot, handleDeleteSlot } from '../actions';
+import { handleCancelAppointment, handleCreateSlot, handleDeleteSlot, handleReschedule } from '../actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -180,10 +188,89 @@ function SlotManager({ doctorId }: { doctorId: string | undefined }) {
     )
 }
 
+function RescheduleDialog({ appointment, open, onOpenChange, onRescheduled }: { appointment: Appointment | null, open: boolean, onOpenChange: (open: boolean) => void, onRescheduled: () => void }) {
+    const [date, setDate] = useState<Date | undefined>();
+    const [time, setTime] = useState("09:00");
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if(appointment) {
+            setDate(appointment.appointmentDate);
+            setTime(format(appointment.appointmentDate, "HH:mm"));
+        }
+    }, [appointment]);
+
+    const handleConfirmReschedule = async () => {
+        if (!appointment || !date || !time) return;
+
+        const [hours, minutes] = time.split(':').map(Number);
+        const newDate = setMinutes(setHours(date, hours), minutes);
+
+        setIsLoading(true);
+        const result = await handleReschedule(appointment.id!, newDate);
+        setIsLoading(false);
+
+        toast({
+            title: result.success ? "Éxito" : "Error",
+            description: result.message,
+            variant: result.success ? "default" : "destructive",
+        });
+
+        if (result.success) {
+            onRescheduled();
+        }
+    }
+
+    if (!appointment) return null;
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Reprogramar Cita</DialogTitle>
+                    <DialogDescription>
+                        Seleccione una nueva fecha y hora para la cita de <strong>{appointment.patientName}</strong>.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                     <CalendarComponent
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                        className="rounded-md border"
+                        locale={es}
+                        disabled={(date) => date < startOfDay(new Date())}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="time" className="sr-only">Hora</Label>
+                        <Input 
+                            id="time"
+                            type="time" 
+                            value={time} 
+                            onChange={(e) => setTime(e.target.value)}
+                            className="w-full"
+                        />
+                      </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                    <Button onClick={handleConfirmReschedule} disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Confirmar Reprogramación
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 export default function DoctorPage() {
   const [pendingAppointments, setPendingAppointments] = useState<Appointment[]>([]);
   const [approvedAppointments, setApprovedAppointments] = useState<Appointment[]>([]);
+  const [rescheduleAppointments, setRescheduleAppointments] = useState<Appointment[]>([]);
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
+  const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
   const [conflictAppointment, setConflictAppointment] = useState<Appointment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -214,6 +301,7 @@ export default function DoctorPage() {
     if (!selectedDoctorId) {
       setPendingAppointments([]);
       setApprovedAppointments([]);
+      setRescheduleAppointments([]);
       setIsLoading(false);
       return;
     };
@@ -228,6 +316,7 @@ export default function DoctorPage() {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const pending: Appointment[] = [];
       const approved: Appointment[] = [];
+      const reschedule: Appointment[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         const appointment = { 
@@ -240,10 +329,13 @@ export default function DoctorPage() {
           pending.push(appointment);
         } else if (appointment.status === 'approved') {
           approved.push(appointment);
+        } else if (appointment.status === 'reschedule-requested') {
+          reschedule.push(appointment);
         }
       });
       setPendingAppointments(pending.sort((a,b) => a.appointmentDate.getTime() - b.appointmentDate.getTime()));
       setApprovedAppointments(approved.sort((a,b) => a.appointmentDate.getTime() - b.appointmentDate.getTime()));
+      setRescheduleAppointments(reschedule.sort((a,b) => a.appointmentDate.getTime() - b.appointmentDate.getTime()));
       setIsLoading(false);
     });
 
@@ -278,6 +370,21 @@ export default function DoctorPage() {
   const handleConflictClick = (appointment: Appointment) => {
      setConflictAppointment(appointment);
   };
+
+  const handleRescheduleClick = (appointment: Appointment) => {
+    setAppointmentToReschedule(appointment);
+  }
+
+  const handleRejectReschedule = async (appointmentId: string) => {
+      if(!appointmentId) return;
+      const appointmentRef = doc(db, 'appointments', appointmentId);
+      // Revert status to 'approved'
+      await updateDoc(appointmentRef, { status: 'approved' });
+      toast({
+          title: "Solicitud Rechazada",
+          description: "La solicitud de reprogramación ha sido rechazada y la cita vuelve a estar aprobada.",
+      });
+  }
 
   const hasConflict = (pendingAppointment: Appointment): boolean => {
     return approvedAppointments.some(
@@ -385,6 +492,64 @@ export default function DoctorPage() {
             </Table>
           </CardContent>
         </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Solicitudes de Reprogramación</CardTitle>
+            <CardDescription>
+              {selectedDoctor ? `Mostrando solicitudes para ${selectedDoctor.name}.` : 'Seleccione un doctor para ver las solicitudes.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Paciente</TableHead>
+                  <TableHead>Fecha Actual</TableHead>
+                  <TableHead>Hora Actual</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                    <TableRow>
+                        <TableCell colSpan={4} className="text-center h-24">Cargando...</TableCell>
+                    </TableRow>
+                ) : !selectedDoctorId ? (
+                     <TableRow>
+                        <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                            Seleccione un doctor para ver las solicitudes.
+                        </TableCell>
+                    </TableRow>
+                ) : rescheduleAppointments.length > 0 ? (
+                  rescheduleAppointments.map((appointment) => (
+                    <TableRow key={appointment.id} className="bg-blue-500/10">
+                      <TableCell className="font-medium">{appointment.patientName}</TableCell>
+                      <TableCell>{format(appointment.appointmentDate, "d 'de' MMMM, yyyy", { locale: es })}</TableCell>
+                      <TableCell>{format(appointment.appointmentDate, "p", { locale: es })}</TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button variant="outline" size="sm" className="border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white" onClick={() => handleRescheduleClick(appointment)}>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Reagendar
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleRejectReschedule(appointment.id!)}>
+                          Rechazar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                      No hay solicitudes de reprogramación.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
 
         <Card>
           <CardHeader>
@@ -445,6 +610,14 @@ export default function DoctorPage() {
           © {new Date().getFullYear()} MediSchedule. Todos los derechos reservados.
         </div>
       </footer>
+
+      <RescheduleDialog
+        appointment={appointmentToReschedule}
+        open={!!appointmentToReschedule}
+        onOpenChange={() => setAppointmentToReschedule(null)}
+        onRescheduled={() => setAppointmentToReschedule(null)}
+      />
+
 
       {appointmentToCancel && (
         <AlertDialog open={!!appointmentToCancel} onOpenChange={() => setAppointmentToCancel(null)}>

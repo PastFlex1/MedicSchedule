@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Loader2, CheckCircle2, XCircle, Calendar as CalendarIcon, Clock, icons, Info, Trash2 } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Calendar as CalendarIcon, Clock, icons, Info, Trash2, RefreshCw } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -53,7 +53,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Doctor, AppointmentSlot, IconName, BookedAppointment, ConfirmAppointmentOutput, Appointment } from "@/lib/types";
-import { handleAppointmentRequest, handleCancelAppointment } from "./actions";
+import { handleAppointmentRequest, handleCancelAppointment, handleRequestReschedule } from "./actions";
 import { collection, getDocs, doc, setDoc, query, where, deleteDoc } from 'firebase/firestore';
 import { db } from "@/lib/firebase";
 import { ToothIcon } from "@/components/icons/tooth-icon";
@@ -155,6 +155,7 @@ export function AppointmentBooking({
   const [confirmationResult, setConfirmationResult] = useState<ConfirmAppointmentOutput | null>(null);
   const [isConfirmationOpen, setConfirmationOpen] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState<BookedAppointment | null>(null);
+  const [appointmentToPostpone, setAppointmentToPostpone] = useState<BookedAppointment | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -222,11 +223,32 @@ export function AppointmentBooking({
     });
   };
 
+  const handlePostponeClick = (appointment: BookedAppointment) => {
+    setAppointmentToPostpone(appointment);
+  };
+
+  const handleConfirmPostpone = () => {
+    if (!appointmentToPostpone) return;
+
+    startTransition(async () => {
+        const { success, message } = await handleRequestReschedule(appointmentToPostpone.id);
+        
+        toast({
+            title: success ? "Solicitud Enviada" : "Error",
+            description: message,
+            variant: success ? "default" : "destructive",
+        });
+
+        setAppointmentToPostpone(null);
+    });
+  };
+
   const doctorMap = new Map(doctors.map(doc => [doc.id, doc]));
   const allBookedDates = bookedAppointments.map(a => a.date);
 
   const pendingAppointments = bookedAppointments.filter(a => a.status === 'pending');
   const approvedAppointments = bookedAppointments.filter(a => a.status === 'approved');
+  const rescheduleRequestedAppointments = bookedAppointments.filter(a => a.status === 'reschedule-requested');
 
   return (
     <div className="space-y-16">
@@ -240,7 +262,7 @@ export function AppointmentBooking({
         </div>
       </section>
 
-       {(approvedAppointments.length > 0 || pendingAppointments.length > 0) && (
+       {(approvedAppointments.length > 0 || pendingAppointments.length > 0 || rescheduleRequestedAppointments.length > 0) && (
           <section id="my-appointments">
               <div className="text-center">
                  <h2 className="text-3xl font-bold font-headline mb-2">Mis Citas</h2>
@@ -282,12 +304,47 @@ export function AppointmentBooking({
                                                 <span>{format(appointment.date, "p", { locale: es })}</span>
                                               </div>
                                           </CardContent>
-                                          <CardFooter>
+                                          <CardFooter className="flex items-center gap-2">
+                                              <Button variant="outline" size="sm" onClick={() => handlePostponeClick(appointment)} disabled={isPending}>
+                                                <RefreshCw className="mr-2 h-4 w-4"/>
+                                                {isPending ? 'Enviando...' : 'Posponer Cita'}
+                                             </Button>
                                              <Button variant="destructive" size="sm" onClick={() => handleCancelClick(appointment)} disabled={isPending}>
                                                 <Trash2 className="mr-2 h-4 w-4"/>
                                                 {isPending ? 'Cancelando...' : 'Cancelar Cita'}
                                              </Button>
                                           </CardFooter>
+                                      </Card>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
+
+                      {rescheduleRequestedAppointments.length > 0 && (
+                           <div>
+                              <h3 className="text-xl font-semibold mb-4 text-blue-600">Solicitudes de Reprogramación</h3>
+                              <div className="space-y-4">
+                                  {rescheduleRequestedAppointments.sort((a, b) => a.date.getTime() - b.date.getTime()).map(appointment => (
+                                      <Card key={appointment.id} className="text-left bg-blue-500/10 border-blue-500/20">
+                                           <CardHeader>
+                                              <CardTitle className="text-lg flex justify-between items-center">
+                                                  Solicitud para {appointment.doctor.name}
+                                                  <Badge variant="secondary" className="bg-blue-500 text-white">Reprogramación Solicitada</Badge>
+                                              </CardTitle>
+                                               <CardDescription className="text-blue-900/80">
+                                                  El doctor revisará su solicitud pronto.
+                                              </CardDescription>
+                                          </CardHeader>
+                                          <CardContent className="flex items-center gap-4">
+                                              <div className="flex items-center gap-2">
+                                                <CalendarIcon className="h-5 w-5 text-blue-700" />
+                                                <span>{format(appointment.date, "EEEE, d 'de' MMMM", { locale: es })}</span>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <Clock className="h-5 w-5 text-muted-foreground" />
+                                                <span>{format(appointment.date, "p", { locale: es })}</span>
+                                              </div>
+                                          </CardContent>
                                       </Card>
                                   ))}
                               </div>
@@ -464,7 +521,32 @@ export function AppointmentBooking({
             </AlertDialogContent>
         </AlertDialog>
       )}
+
+       {appointmentToPostpone && (
+        <AlertDialog open={!!appointmentToPostpone} onOpenChange={() => setAppointmentToPostpone(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                        <RefreshCw className="h-6 w-6 text-blue-500" />
+                        Confirmar Solicitud para Posponer
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="pt-4">
+                        ¿Está seguro de que desea solicitar posponer su cita con <strong>{appointmentToPostpone.doctor.name}</strong>? El doctor revisará su solicitud y se le notificará si es aprobada.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleConfirmPostpone} className={cn(buttonVariants({ variant: "default" }))}>
+                        {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Sí, enviar solicitud
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
+
     </div>
   );
 
     
+
