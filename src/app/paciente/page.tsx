@@ -112,6 +112,7 @@ export default function PatientPage() {
 
   useEffect(() => {
     const seedAndFetchData = async () => {
+      setIsLoading(true);
       // Fetch or seed doctors
       const doctorsCol = collection(db, 'doctors');
       let doctorList: Doctor[];
@@ -124,11 +125,10 @@ export default function PatientPage() {
           await setDoc(doc(db, 'doctors', id), { ...doctorData, id });
           doctorList.push({ ...doctorData, id });
         }
-        setDoctors(doctorList);
       } else {
         doctorList = doctorSnapshot.docs.map(doc => doc.data() as Doctor);
-        setDoctors(doctorList);
       }
+      setDoctors(doctorList);
       
       const doctorMap = new Map(doctorList.map(doc => [doc.id, doc]));
 
@@ -140,20 +140,20 @@ export default function PatientPage() {
           const slotId = `${slot.doctorId}_${slot.date.toISOString()}`;
           await setDoc(doc(db, 'appointmentSlots', slotId), slot);
         }
-         const seededSlots = initialAppointmentSlots.map(s => ({...s, id: `${s.doctorId}_${s.date.toISOString()}`}));
-         setAppointmentSlots(seededSlots);
-      } else {
-        const slotList = slotSnapshot.docs.map(doc => {
+      } 
+      
+      // We are going to listen for slot changes in real time
+      const unsubscribeSlots = onSnapshot(slotsCol, (snapshot) => {
+        const slotList = snapshot.docs.map(doc => {
             const data = doc.data();
-            // Firestore returns Timestamps, convert them to Date objects
             return { id: doc.id, ...data, date: data.date.toDate() } as AppointmentSlot;
         });
         setAppointmentSlots(slotList);
-      }
+      });
 
       // Listen for changes in the user's appointments
-        const q = query(collection(db, "appointments"), where("patientId", "==", FAKE_USER_ID));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const q = query(collection(db, "appointments"), where("patientId", "==", FAKE_USER_ID), where("status", "in", ["approved", "pending"]));
+        const unsubscribeAppointments = onSnapshot(q, (querySnapshot) => {
           const appointments: BookedAppointment[] = [];
           querySnapshot.forEach((doc) => {
             const data = doc.data();
@@ -171,7 +171,10 @@ export default function PatientPage() {
           setIsLoading(false);
         });
 
-      return () => unsubscribe();
+      return () => {
+        unsubscribeSlots();
+        unsubscribeAppointments();
+      };
     };
     
     seedAndFetchData();
@@ -198,7 +201,7 @@ export default function PatientPage() {
           doctors={doctors}
           appointmentSlots={appointmentSlots}
           onAppointmentBooked={(slotId) => {
-            setAppointmentSlots(prev => prev.filter(s => s.id !== slotId));
+            // The real-time listener will handle the update
           }}
           bookedAppointments={bookedAppointments}
           patientId={FAKE_USER_ID}

@@ -226,8 +226,8 @@ export function AppointmentBooking({
 
       {bookedAppointments.length > 0 && (
           <section id="pending-appointments" className="text-center">
-              <h2 className="text-3xl font-bold font-headline mb-2">Mis Citas Pendientes</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Aquí puede ver sus próximas citas. Recibirá una notificación cuando el doctor las confirme.</p>
+              <h2 className="text-3xl font-bold font-headline mb-2">Mis Citas Confirmadas</h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Aquí puede ver sus próximas citas confirmadas.</p>
               <div className="grid md:grid-cols-2 gap-8 items-start">
                   <div className="flex justify-center">
                       <Calendar
@@ -267,7 +267,7 @@ export function AppointmentBooking({
 
       <section id="appointments" className="text-center">
         <h2 className="text-3xl font-bold font-headline mb-2">Citas Disponibles</h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elija un horario que le convenga. Su solicitud será enviada al doctor para su aprobación.</p>
+        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elija un horario que le convenga para recibir confirmación inmediata.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {availableSlots.map(slot => (
             <AppointmentCard
@@ -283,9 +283,9 @@ export function AppointmentBooking({
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Solicitar Cita</DialogTitle>
+            <DialogTitle>Confirmar Cita</DialogTitle>
             <DialogDescription>
-              Por favor, complete sus datos para solicitar una cita para el {selectedSlot && format(selectedSlot.date, "d 'de' MMMM, yyyy 'a las' p", { locale: es })}.
+              Por favor, complete sus datos para confirmar su cita para el {selectedSlot && format(selectedSlot.date, "d 'de' MMMM, yyyy 'a las' p", { locale: es })}.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -332,7 +332,7 @@ export function AppointmentBooking({
               <DialogFooter>
                 <Button type="submit" disabled={isPending}>
                   {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Solicitar Cita
+                  Confirmar Cita
                 </Button>
               </DialogFooter>
             </form>
@@ -350,19 +350,21 @@ export function AppointmentBooking({
                 ) : (
                   <XCircle className="h-6 w-6 text-destructive" />
                 )}
-                  Solicitud Enviada
+                  {confirmationResult.confirmationStatus ? "Cita Confirmada" : "Error"}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {confirmationResult.reason}
               </AlertDialogDescription>
             </AlertDialogHeader>
-            {confirmationResult.confirmationStatus && selectedSlot && (
-               <div className="p-4 -mx-2 -mb-4 bg-muted/50 rounded-lg text-foreground text-sm space-y-1">
-                <div><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</div>
-                <div><strong>Fecha:</strong> {format(selectedSlot.date, "EEEE, d 'de' MMMM, yyyy", { locale: es })}</div>
-                <div><strong>Hora:</strong> {format(selectedSlot.date, "p", { locale: es })}</div>
-              </div>
-            )}
+            <div className="space-y-4">
+                {confirmationResult.confirmationStatus && selectedSlot && (
+                   <div className="p-4 -mx-2 -mb-4 bg-muted/50 rounded-lg text-foreground text-sm space-y-1">
+                    <div><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</div>
+                    <div><strong>Fecha:</strong> {format(selectedSlot.date, "EEEE, d 'de' MMMM, yyyy", { locale: es })}</div>
+                    <div><strong>Hora:</strong> {format(selectedSlot.date, "p", { locale: es })}</div>
+                  </div>
+                )}
+            </div>
             <AlertDialogFooter>
               <AlertDialogAction onClick={() => setConfirmationOpen(false)}>Cerrar</AlertDialogAction>
             </AlertDialogFooter>

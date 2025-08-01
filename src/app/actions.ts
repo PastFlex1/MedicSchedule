@@ -21,13 +21,13 @@ export async function handleAppointmentRequest(
             specialty: doctor.specialty
         },
         patientId: patientId, // In a real app, this would be the authenticated user's ID
-        status: 'pending',
+        status: 'approved', // The appointment is approved instantly
         createdAt: Timestamp.now()
     });
     
     return {
         confirmationStatus: true,
-        reason: "Su solicitud ha sido enviada. El doctor la revisará y recibirá una notificación cuando sea aprobada.",
+        reason: "¡Su cita ha sido confirmada! Recibirá un recordatorio por correo electrónico o SMS.",
     };
 
   } catch (error) {
