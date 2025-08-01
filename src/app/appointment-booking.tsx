@@ -80,12 +80,10 @@ function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & Compon
         <CardDescription className="text-primary">{doctor.specialty}</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
-        {IconComponent && (
-            <Badge variant="secondary" className="bg-accent/20 text-accent-foreground/80">
-                {createElement(IconComponent, { className: "mr-2 h-4 w-4 text-accent" })}
-                {doctor.specialty}
-            </Badge>
-        )}
+          <Badge variant="secondary" className="bg-accent/20 text-accent-foreground/80">
+              {IconComponent && createElement(IconComponent, { className: "mr-2 h-4 w-4 text-accent" })}
+              {doctor.specialty}
+          </Badge>
       </CardContent>
     </Card>
   );
@@ -463,4 +461,5 @@ export function AppointmentBooking({
       )}
     </div>
   );
-}
+
+    
