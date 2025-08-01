@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from "@/components/ui/label";
 import { Stethoscope, LogOut, User, Calendar, Clock, Check, X, AlertCircle, PartyPopper, Loader2, PlusCircle, Trash2, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -37,7 +38,7 @@ import {
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDoc, setDoc, Timestamp, getDocs } from 'firebase/firestore';
 import type { Appointment, AppointmentSlot, Doctor } from '@/lib/types';
-import { format, setHours, setMinutes, startOfDay } from 'date-fns';
+import { format, setHours, setMinutes, startOfDay, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { handleCancelAppointment, handleCreateSlot, handleDeleteSlot, handleReschedule } from '../actions';
 import { useToast } from '@/hooks/use-toast';
@@ -69,22 +70,20 @@ function Header() {
 }
 
 function SlotManager({ doctorId }: { doctorId: string | undefined }) {
-    const [date, setDate] = useState<Date | undefined>(new Date());
+    const [date, setDate] = useState<Date>(new Date());
     const [time, setTime] = useState("09:00");
-    const [availableSlots, setAvailableSlots] = useState<AppointmentSlot[]>([]);
+    const [allSlots, setAllSlots] = useState<AppointmentSlot[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
 
     useEffect(() => {
-        if (!date || !doctorId) {
-            setAvailableSlots([]);
+        if (!doctorId) {
+            setAllSlots([]);
             return;
         }
         const q = query(
             collection(db, "appointmentSlots"),
-            where("doctorId", "==", doctorId),
-            where("date", ">=", startOfDay(date)),
-            where("date", "<", startOfDay(new Date(date.getTime() + 24 * 60 * 60 * 1000)))
+            where("doctorId", "==", doctorId)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -96,11 +95,18 @@ function SlotManager({ doctorId }: { doctorId: string | undefined }) {
                     date: (data.date as Timestamp).toDate(),
                 } as AppointmentSlot
             });
-            setAvailableSlots(slotsData.sort((a,b) => a.date.getTime() - b.date.getTime()));
+            setAllSlots(slotsData);
         });
         
         return () => unsubscribe();
-    }, [date, doctorId]);
+    }, [doctorId]);
+    
+    const availableSlots = useMemo(() => {
+        if (!date) return [];
+        return allSlots
+            .filter(slot => isSameDay(slot.date, date))
+            .sort((a,b) => a.date.getTime() - b.date.getTime());
+    }, [allSlots, date]);
 
     const handleAddSlot = async () => {
         if (!date || !time || !doctorId) {
@@ -142,7 +148,7 @@ function SlotManager({ doctorId }: { doctorId: string | undefined }) {
                      <CalendarComponent
                         mode="single"
                         selected={date}
-                        onSelect={setDate}
+                        onSelect={(day) => day && setDate(day)}
                         className="rounded-md border"
                         locale={es}
                         disabled={(date) => date < startOfDay(new Date()) || !doctorId}
@@ -666,3 +672,5 @@ export default function DoctorPage() {
     </div>
   );
 }
+
+    
