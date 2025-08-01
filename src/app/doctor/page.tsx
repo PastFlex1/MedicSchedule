@@ -26,13 +26,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
-import type { Appointment, AppointmentSlot } from '@/lib/types';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDoc, setDoc, Timestamp, getDocs } from 'firebase/firestore';
+import type { Appointment, AppointmentSlot, Doctor } from '@/lib/types';
 import { format, setHours, setMinutes, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { handleCancelAppointment, handleCreateSlot, handleDeleteSlot } from '../actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 
 function Header() {
   return (
@@ -41,7 +44,7 @@ function Header() {
         <div className="flex items-center gap-3">
           <Stethoscope className="h-8 w-8 text-primary" />
           <h1 className="text-2xl font-bold font-headline text-primary tracking-tight">
-            MediSchedule - Portal del Doctor
+            MediSchedule - Portal de Administración
           </h1>
         </div>
         <Button variant="ghost" asChild>
@@ -55,7 +58,7 @@ function Header() {
   );
 }
 
-function SlotManager({ doctorId }: { doctorId: string }) {
+function SlotManager({ doctorId }: { doctorId: string | undefined }) {
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [time, setTime] = useState("09:00");
     const [availableSlots, setAvailableSlots] = useState<AppointmentSlot[]>([]);
@@ -63,7 +66,10 @@ function SlotManager({ doctorId }: { doctorId: string }) {
     const { toast } = useToast();
 
     useEffect(() => {
-        if (!date) return;
+        if (!date || !doctorId) {
+            setAvailableSlots([]);
+            return;
+        }
         const q = query(
             collection(db, "appointmentSlots"),
             where("doctorId", "==", doctorId),
@@ -72,19 +78,23 @@ function SlotManager({ doctorId }: { doctorId: string }) {
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const slots = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            } as AppointmentSlot));
-            setAvailableSlots(slots.sort((a,b) => a.date.getTime() - b.date.getTime()));
+            const slotsData = snapshot.docs.map(doc => {
+                 const data = doc.data();
+                 return {
+                    id: doc.id,
+                    ...data,
+                    date: (data.date as Timestamp).toDate(),
+                } as AppointmentSlot
+            });
+            setAvailableSlots(slotsData.sort((a,b) => a.date.getTime() - b.date.getTime()));
         });
         
         return () => unsubscribe();
     }, [date, doctorId]);
 
     const handleAddSlot = async () => {
-        if (!date || !time) {
-            toast({ title: "Error", description: "Por favor, seleccione una fecha y una hora.", variant: "destructive" });
+        if (!date || !time || !doctorId) {
+            toast({ title: "Error", description: "Por favor, seleccione un doctor, una fecha y una hora.", variant: "destructive" });
             return;
         }
 
@@ -115,7 +125,7 @@ function SlotManager({ doctorId }: { doctorId: string }) {
         <Card>
             <CardHeader>
                 <CardTitle>Gestionar Horarios Disponibles</CardTitle>
-                <CardDescription>Añada o elimine sus horarios de consulta. Los pacientes los verán en tiempo real.</CardDescription>
+                <CardDescription>Añada o elimine los horarios de consulta para el doctor seleccionado. Los pacientes los verán en tiempo real.</CardDescription>
             </CardHeader>
             <CardContent className="grid md:grid-cols-2 gap-8">
                 <div className="flex flex-col gap-4">
@@ -125,7 +135,7 @@ function SlotManager({ doctorId }: { doctorId: string }) {
                         onSelect={setDate}
                         className="rounded-md border"
                         locale={es}
-                        disabled={(date) => date < startOfDay(new Date())}
+                        disabled={(date) => date < startOfDay(new Date()) || !doctorId}
                       />
                       <div className="flex items-center gap-2">
                         <Input 
@@ -133,8 +143,9 @@ function SlotManager({ doctorId }: { doctorId: string }) {
                             value={time} 
                             onChange={(e) => setTime(e.target.value)}
                             className="w-full"
+                            disabled={!doctorId}
                         />
-                        <Button onClick={handleAddSlot} disabled={isLoading}>
+                        <Button onClick={handleAddSlot} disabled={isLoading || !doctorId}>
                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                             Añadir
                         </Button>
@@ -157,7 +168,9 @@ function SlotManager({ doctorId }: { doctorId: string }) {
                             ))}
                         </div>
                     ) : (
-                        <p className="text-sm text-muted-foreground text-center pt-8">No hay horarios disponibles para este día.</p>
+                         <div className="text-sm text-muted-foreground text-center pt-8 h-full flex items-center justify-center">
+                           {!doctorId ? <p>Seleccione un doctor para ver sus horarios.</p> : <p>No hay horarios disponibles para este día.</p> }
+                        </div>
                     )}
                 </div>
             </CardContent>
@@ -174,14 +187,40 @@ export default function DoctorPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const { toast } = useToast();
   
-  // This is a temporary doctor ID for demonstration.
-  // In a real app, this would come from the authenticated doctor's profile.
-  const FAKE_DOCTOR_ID = "1";
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>();
 
   useEffect(() => {
+    const fetchDoctors = async () => {
+      const doctorsCol = collection(db, 'doctors');
+      const doctorSnapshot = await getDocs(doctorsCol);
+      const doctorList = doctorSnapshot.docs.map(doc => doc.data() as Doctor);
+      setDoctors(doctorList);
+      if(doctorList.length > 0) {
+        //   setSelectedDoctorId(doctorList[0].id);
+      }
+    };
+    fetchDoctors();
+  }, []);
+
+  const selectedDoctor = useMemo(() => {
+    return doctors.find(d => d.id === selectedDoctorId);
+  }, [doctors, selectedDoctorId]);
+
+
+  useEffect(() => {
+    if (!selectedDoctorId) {
+      setPendingAppointments([]);
+      setApprovedAppointments([]);
+      setIsLoading(false);
+      return;
+    };
+
+    setIsLoading(true);
+
     const q = query(
       collection(db, "appointments"),
-      where("doctor.id", "==", FAKE_DOCTOR_ID)
+      where("doctor.id", "==", selectedDoctorId)
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -207,7 +246,7 @@ export default function DoctorPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [selectedDoctorId]);
 
   const handleApprove = async (id: string) => {
      if(!id) return;
@@ -250,12 +289,44 @@ export default function DoctorPage() {
       <Header />
       <main className="flex-1 container mx-auto p-4 sm:p-6 md:p-8 space-y-8">
         
-        <SlotManager doctorId={FAKE_DOCTOR_ID} />
+        <Card>
+            <CardHeader>
+                <CardTitle>Seleccionar Doctor</CardTitle>
+                <CardDescription>Elija un doctor para gestionar su calendario y sus citas.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId}>
+                    <SelectTrigger className="w-full md:w-1/2">
+                        <SelectValue placeholder="Seleccione un doctor..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {doctors.map(doctor => (
+                            <SelectItem key={doctor.id} value={doctor.id}>
+                               <div className="flex items-center gap-3">
+                                 <Avatar className="w-8 h-8">
+                                    <AvatarImage src={doctor.avatarUrl} alt={doctor.name} />
+                                    <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="font-semibold">{doctor.name}</p>
+                                    <p className="text-sm text-muted-foreground">{doctor.specialty}</p>
+                                </div>
+                               </div>
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </CardContent>
+        </Card>
+
+        <SlotManager doctorId={selectedDoctorId} />
 
         <Card>
           <CardHeader>
             <CardTitle>Solicitudes de Citas Pendientes</CardTitle>
-            <CardDescription>Revise, confirme o rechace las nuevas solicitudes de citas.</CardDescription>
+            <CardDescription>
+              {selectedDoctor ? `Mostrando solicitudes para ${selectedDoctor.name}.` : 'Seleccione un doctor para ver las solicitudes.'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -272,6 +343,12 @@ export default function DoctorPage() {
                 {isLoading ? (
                     <TableRow>
                         <TableCell colSpan={5} className="text-center h-24">Cargando...</TableCell>
+                    </TableRow>
+                ) : !selectedDoctorId ? (
+                     <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                            Seleccione un doctor para ver las citas pendientes.
+                        </TableCell>
                     </TableRow>
                 ) : pendingAppointments.length > 0 ? (
                   pendingAppointments.map((appointment) => (
@@ -299,7 +376,7 @@ export default function DoctorPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                      No hay citas pendientes.
+                      No hay citas pendientes para este doctor.
                     </TableCell>
                   </TableRow>
                 )}
@@ -311,7 +388,9 @@ export default function DoctorPage() {
         <Card>
           <CardHeader>
             <CardTitle>Citas Aprobadas</CardTitle>
-            <CardDescription>Estas son las citas que ha confirmado. Los pacientes han sido notificados.</CardDescription>
+            <CardDescription>
+                {selectedDoctor ? `Mostrando citas aprobadas para ${selectedDoctor.name}.` : 'Seleccione un doctor para ver las citas aprobadas.'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
              <div className="grid md:grid-cols-2 gap-8 items-start">
@@ -325,6 +404,10 @@ export default function DoctorPage() {
                   </div>
             {isLoading ? (
                  <div className="text-center py-12 text-muted-foreground">Cargando...</div>
+            ) : !selectedDoctorId ? (
+                <div className="text-center py-12 text-muted-foreground col-span-1 flex items-center justify-center">
+                    <p>Seleccione un doctor.</p>
+                </div>
             ) : approvedAppointments.length > 0 ? (
                  <div className="space-y-4">
                     {approvedAppointments.map(appointment => (
@@ -348,8 +431,8 @@ export default function DoctorPage() {
                     ))}
                  </div>
             ) : (
-                <div className="text-center py-12 text-muted-foreground col-span-2">
-                    <p>Aún no hay citas aprobadas.</p>
+                <div className="text-center py-12 text-muted-foreground col-span-1 flex items-center justify-center">
+                    <p>Aún no hay citas aprobadas para este doctor.</p>
                 </div>
             )}
             </div>
