@@ -8,7 +8,7 @@ import { Stethoscope, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, setDoc, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, query, where, onSnapshot, Timestamp, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const initialDoctors: Omit<Doctor, 'id'>[] = [
@@ -128,26 +128,24 @@ export default function PatientPage() {
     const seedAndFetchData = async () => {
       setIsLoading(true);
       
-      // --- Improved Seeding Logic ---
       const doctorsCol = collection(db, 'doctors');
-      const doctorSnapshot = await getDocs(doctorsCol);
-      const existingDoctorIds = new Set(doctorSnapshot.docs.map(doc => doc.id));
-
-      // Add only the doctors that don't already exist
+      
+      // --- Force update doctors from initialDoctors array ---
+      const batch = writeBatch(db);
+      const finalDoctorList: Doctor[] = [];
       for (let i = 0; i < initialDoctors.length; i++) {
         const id = (i + 1).toString();
-        if (!existingDoctorIds.has(id)) {
-          const doctorData = initialDoctors[i];
-          await setDoc(doc(db, 'doctors', id), { ...doctorData, id });
-        }
+        const doctorData = { ...initialDoctors[i], id };
+        const docRef = doc(db, 'doctors', id);
+        batch.set(docRef, doctorData);
+        finalDoctorList.push(doctorData);
       }
-
-      // Fetch all doctors again to have the complete list
-      const allDoctorsSnapshot = await getDocs(doctorsCol);
-      const doctorList = allDoctorsSnapshot.docs.map(doc => doc.data() as Doctor);
-      setDoctors(doctorList);
+      await batch.commit();
       
-      const doctorMap = new Map(doctorList.map(doc => [doc.id, doc]));
+      // Set the state with the most up-to-date doctor list
+      setDoctors(finalDoctorList);
+      
+      const doctorMap = new Map(finalDoctorList.map(doc => [doc.id, doc]));
 
       // Fetch or seed slots
       const slotsCol = collection(db, 'appointmentSlots');
