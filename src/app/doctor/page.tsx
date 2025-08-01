@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -59,11 +60,19 @@ function Header() {
 }
 
 function SlotManager({ doctorId }: { doctorId: string | undefined }) {
-    const [date, setDate] = useState<Date | undefined>(new Date());
+    const [date, setDate] = useState<Date | undefined>();
     const [time, setTime] = useState("09:00");
     const [availableSlots, setAvailableSlots] = useState<AppointmentSlot[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
+
+    useEffect(() => {
+        // Set the initial date on the client to avoid hydration mismatch
+        if (!date) {
+          setDate(new Date());
+        }
+    }, [date]);
+
 
     useEffect(() => {
         if (!date || !doctorId) {
@@ -491,4 +500,5 @@ export default function DoctorPage() {
 
     </div>
   );
-}
+
+    
