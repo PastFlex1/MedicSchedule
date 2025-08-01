@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import type { Doctor, Appointment, BookedAppointment } from '@/lib/types';
+import type { Doctor, Appointment, BookedAppointment, AppointmentSlot } from '@/lib/types';
 import { AppointmentBooking } from '../appointment-booking';
 import { Stethoscope, LogOut } from 'lucide-react';
 import Link from 'next/link';
@@ -11,9 +11,8 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, setDoc, query, where, onSnapshot } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const initialDoctors: Doctor[] = [
+const initialDoctors: Omit<Doctor, 'id'>[] = [
   {
-    id: '1',
     name: 'Dra. Sarah Johnson',
     specialty: 'Cardiología',
     avatarUrl: 'https://placehold.co/100x100.png',
@@ -21,7 +20,6 @@ const initialDoctors: Doctor[] = [
     dataAiHint: 'doctor portrait',
   },
   {
-    id: '2',
     name: 'Dr. Mark Smith',
     specialty: 'Ortopedia',
     avatarUrl: 'https://placehold.co/100x100.png',
@@ -29,7 +27,6 @@ const initialDoctors: Doctor[] = [
     dataAiHint: 'doctor portrait',
   },
   {
-    id: '3',
     name: 'Dra. Emily White',
     specialty: 'Neurología',
     avatarUrl: 'https://placehold.co/100x100.png',
@@ -37,7 +34,6 @@ const initialDoctors: Doctor[] = [
     dataAiHint: 'doctor portrait',
   },
   {
-    id: '4',
     name: 'Dr. David Chen',
     specialty: 'Medicina General',
     avatarUrl: 'https://placehold.co/100x100.png',
@@ -45,6 +41,21 @@ const initialDoctors: Doctor[] = [
     dataAiHint: 'doctor portrait',
   },
 ];
+
+const initialAppointmentSlots: Omit<AppointmentSlot, 'id'>[] = [
+    // Dr. Johnson
+    { date: new Date(new Date().setHours(9, 0, 0, 0)), doctorId: '1' },
+    { date: new Date(new Date().setHours(9, 30, 0, 0)), doctorId: '1' },
+    { date: new Date(new Date().setHours(14, 0, 0, 0)), doctorId: '1' },
+    // Dr. Smith
+    { date: new Date(new Date().setDate(new Date().getDate() + 2)), doctorId: '2' },
+    { date: new Date(new Date(new Date().setDate(new Date().getDate() + 2)).setHours(10, 30, 0, 0)), doctorId: '2' },
+    { date: new Date(new Date(new Date().setDate(new Date().getDate() + 2)).setHours(11, 30, 0, 0)), doctorId: '2' },
+    // Dr. Chen
+    { date: new Date(new Date().setHours(10, 0, 0, 0)), doctorId: '4' },
+    { date: new Date(new Date().setHours(11, 0, 0, 0)), doctorId: '4' },
+];
+
 
 function Header() {
   return (
@@ -91,6 +102,7 @@ function LoadingSkeleton() {
 
 export default function PatientPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [appointmentSlots, setAppointmentSlots] = useState<AppointmentSlot[]>([]);
   const [bookedAppointments, setBookedAppointments] = useState<BookedAppointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -99,47 +111,71 @@ export default function PatientPage() {
   const FAKE_USER_ID = "patient123";
 
   useEffect(() => {
-    const fetchDoctors = async () => {
+    const seedAndFetchData = async () => {
+      // Fetch or seed doctors
       const doctorsCol = collection(db, 'doctors');
+      let doctorList: Doctor[];
       const doctorSnapshot = await getDocs(doctorsCol);
       if (doctorSnapshot.empty) {
-        // Seed doctors if collection is empty
-        for (const doctor of initialDoctors) {
-          await setDoc(doc(db, 'doctors', doctor.id), doctor);
+        doctorList = [];
+        for (let i = 0; i < initialDoctors.length; i++) {
+          const doctorData = initialDoctors[i];
+          const id = (i + 1).toString();
+          await setDoc(doc(db, 'doctors', id), { ...doctorData, id });
+          doctorList.push({ ...doctorData, id });
         }
-        setDoctors(initialDoctors);
+        setDoctors(doctorList);
       } else {
-        const doctorList = doctorSnapshot.docs.map(doc => doc.data() as Doctor);
+        doctorList = doctorSnapshot.docs.map(doc => doc.data() as Doctor);
         setDoctors(doctorList);
       }
+      
+      const doctorMap = new Map(doctorList.map(doc => [doc.id, doc]));
+
+      // Fetch or seed slots
+      const slotsCol = collection(db, 'appointmentSlots');
+      const slotSnapshot = await getDocs(slotsCol);
+      if (slotSnapshot.empty) {
+        for (const slot of initialAppointmentSlots) {
+          const slotId = `${slot.doctorId}_${slot.date.toISOString()}`;
+          await setDoc(doc(db, 'appointmentSlots', slotId), slot);
+        }
+         const seededSlots = initialAppointmentSlots.map(s => ({...s, id: `${s.doctorId}_${s.date.toISOString()}`}));
+         setAppointmentSlots(seededSlots);
+      } else {
+        const slotList = slotSnapshot.docs.map(doc => {
+            const data = doc.data();
+            // Firestore returns Timestamps, convert them to Date objects
+            return { id: doc.id, ...data, date: data.date.toDate() } as AppointmentSlot;
+        });
+        setAppointmentSlots(slotList);
+      }
+
+      // Listen for changes in the user's appointments
+        const q = query(collection(db, "appointments"), where("patientId", "==", FAKE_USER_ID));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+          const appointments: BookedAppointment[] = [];
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            const doctor = doctorMap.get(data.doctor.id);
+            if (doctor) {
+                appointments.push({
+                    id: doc.id,
+                    date: data.appointmentDate.toDate(),
+                    doctorId: data.doctor.id,
+                    doctor: doctor,
+                });
+            }
+          });
+          setBookedAppointments(appointments);
+          setIsLoading(false);
+        });
+
+      return () => unsubscribe();
     };
     
-    fetchDoctors();
-
-    // Listen for changes in the user's appointments
-    const q = query(collection(db, "appointments"), where("patientId", "==", FAKE_USER_ID));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const appointments: BookedAppointment[] = [];
-      const fetchedDoctors = new Map(doctors.map(doc => [doc.id, doc]));
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        const doctor = fetchedDoctors.get(data.doctor.id);
-        if (doctor) {
-            appointments.push({
-                id: doc.id,
-                date: data.appointmentDate.toDate(),
-                doctorId: data.doctor.id,
-                doctor: doctor,
-            });
-        }
-      });
-      setBookedAppointments(appointments);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [doctors]);
+    seedAndFetchData();
+  }, []);
 
 
   if (isLoading) {
@@ -160,7 +196,10 @@ export default function PatientPage() {
       <main className="flex-1 container mx-auto p-4 sm:p-6 md:p-8">
         <AppointmentBooking 
           doctors={doctors}
-          onAppointmentBooked={() => {}} // The onSnapshot now handles updates
+          appointmentSlots={appointmentSlots}
+          onAppointmentBooked={(slotId) => {
+            setAppointmentSlots(prev => prev.filter(s => s.id !== slotId));
+          }}
           bookedAppointments={bookedAppointments}
           patientId={FAKE_USER_ID}
         />

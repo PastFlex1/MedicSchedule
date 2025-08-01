@@ -53,7 +53,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Doctor, AppointmentSlot, IconName, BookedAppointment, ConfirmAppointmentOutput } from "@/lib/types";
 import { handleAppointmentRequest } from "./actions";
-import { collection, getDocs, doc, setDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, query, where, deleteDoc } from 'firebase/firestore';
 import { db } from "@/lib/firebase";
 
 
@@ -63,19 +63,6 @@ const formSchema = z.object({
   requirements: z.string().optional(),
 });
 
-const initialAppointmentSlots: Omit<AppointmentSlot, 'id'>[] = [
-    // Dr. Johnson
-    { date: new Date(new Date().setHours(9, 0, 0, 0)), doctorId: '1' },
-    { date: new Date(new Date().setHours(9, 30, 0, 0)), doctorId: '1' },
-    { date: new Date(new Date().setHours(14, 0, 0, 0)), doctorId: '1' },
-    // Dr. Smith
-    { date: new Date(new Date().setDate(new Date().getDate() + 2), 9, 28, 10, 0, 0), doctorId: '2' },
-    { date: new Date(new Date().setDate(new Date().getDate() + 2), 9, 28, 10, 30, 0), doctorId: '2' },
-    { date: new Date(new Date().setDate(new Date().getDate() + 2), 9, 28, 11, 30, 0), doctorId: '2' },
-    // Dr. Chen
-    { date: new Date(new Date().setHours(10, 0, 0, 0)), doctorId: '4' },
-    { date: new Date(new Date().setHours(11, 0, 0, 0)), doctorId: '4' },
-];
 
 function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & ComponentProps<typeof Card>) {
   const IconComponent = doctor.icon ? icons[doctor.icon] : null;
@@ -103,11 +90,25 @@ function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & Compon
 }
 
 function AppointmentCard({ slot, doctor, onBook, className, ...props }: { slot: AppointmentSlot; doctor?: Doctor; onBook: () => void; } & ComponentProps<typeof Card>) {
+  // Ensure date is a valid Date object before formatting
+  const date = slot.date instanceof Date ? slot.date : new Date(slot.date);
+  
+  if (isNaN(date.getTime())) {
+    // Handle invalid date gracefully
+    return (
+       <Card className={cn("transition-all duration-300 hover:shadow-lg hover:border-primary/50", className)} {...props}>
+          <CardHeader>
+             <CardTitle>Horario no válido</CardTitle>
+          </CardHeader>
+       </Card>
+    )
+  }
+
   return (
     <Card className={cn("transition-all duration-300 hover:shadow-lg hover:border-primary/50", className)} {...props}>
       <CardHeader>
-        <CardTitle className="font-headline text-lg flex items-center gap-2 capitalize"><CalendarIcon className="h-5 w-5 text-primary" /> {format(slot.date, "EEEE, d 'de' MMMM", { locale: es })}</CardTitle>
-        <CardDescription className="flex items-center gap-2"><Clock className="h-5 w-5 text-muted-foreground" /> {format(slot.date, "p", { locale: es })}</CardDescription>
+        <CardTitle className="font-headline text-lg flex items-center gap-2 capitalize"><CalendarIcon className="h-5 w-5 text-primary" /> {format(date, "EEEE, d 'de' MMMM", { locale: es })}</CardTitle>
+        <CardDescription className="flex items-center gap-2"><Clock className="h-5 w-5 text-muted-foreground" /> {format(date, "p", { locale: es })}</CardDescription>
       </CardHeader>
       {doctor && (
         <CardContent>
@@ -132,19 +133,20 @@ function AppointmentCard({ slot, doctor, onBook, className, ...props }: { slot: 
 
 export function AppointmentBooking({
   doctors,
+  appointmentSlots,
   onAppointmentBooked,
   bookedAppointments = [],
   patientId,
 }: {
   doctors: Doctor[];
-  onAppointmentBooked: (appointment: BookedAppointment) => void;
+  appointmentSlots: AppointmentSlot[];
+  onAppointmentBooked: (slotId: string) => void;
   bookedAppointments: BookedAppointment[];
   patientId: string;
 }) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const [appointmentSlots, setAppointmentSlots] = useState<AppointmentSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null);
   const [isFormOpen, setFormOpen] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmAppointmentOutput | null>(null);
@@ -158,27 +160,6 @@ export function AppointmentBooking({
       requirements: "",
     },
   });
-
-   useEffect(() => {
-    const seedAndFetchSlots = async () => {
-      const slotsCol = collection(db, 'appointmentSlots');
-      const slotSnapshot = await getDocs(slotsCol);
-      if (slotSnapshot.empty) {
-        // Seed slots
-        for (const slot of initialAppointmentSlots) {
-          const slotId = `${slot.doctorId}_${slot.date.toISOString()}`;
-          await setDoc(doc(db, 'appointmentSlots', slotId), slot);
-        }
-         const seededSlots = initialAppointmentSlots.map(s => ({...s, id: `${s.doctorId}_${s.date.toISOString()}`}));
-         setAppointmentSlots(seededSlots);
-      } else {
-        const slotList = slotSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppointmentSlot));
-        setAppointmentSlots(slotList);
-      }
-    };
-    seedAndFetchSlots();
-  }, []);
-
 
   const handleBookClick = (slot: AppointmentSlot) => {
     setSelectedSlot(slot);
@@ -207,8 +188,10 @@ export function AppointmentBooking({
       setConfirmationOpen(true);
 
       if (result.confirmationStatus) {
-        // Remove the booked slot from the available slots
-        setAppointmentSlots(prev => prev.filter(s => s.id !== selectedSlot.id));
+        // Remove the booked slot from the available slots in Firestore
+        const slotDocRef = doc(db, 'appointmentSlots', selectedSlot.id);
+        await deleteDoc(slotDocRef);
+        onAppointmentBooked(selectedSlot.id);
       }
 
       form.reset();
@@ -219,7 +202,13 @@ export function AppointmentBooking({
   const bookedDates = bookedAppointments.map(a => a.date);
   
   const availableSlots = appointmentSlots.filter(slot => 
-    !bookedAppointments.some(booked => booked.date.getTime() === slot.date.getTime() && booked.doctorId === slot.doctorId)
+    !bookedAppointments.some(booked => {
+        // Ensure both dates are valid Date objects before comparing
+        const bookedDate = booked.date instanceof Date ? booked.date : new Date(booked.date);
+        const slotDate = slot.date instanceof Date ? slot.date : new Date(slot.date);
+        if (isNaN(bookedDate.getTime()) || isNaN(slotDate.getTime())) return false;
+        return bookedDate.getTime() === slotDate.getTime() && booked.doctorId === slot.doctorId;
+    })
   );
 
 
@@ -368,7 +357,7 @@ export function AppointmentBooking({
               </AlertDialogDescription>
             </AlertDialogHeader>
             {confirmationResult.confirmationStatus && selectedSlot && (
-              <div className="p-4 -mx-2 -mb-4 bg-muted/50 rounded-lg text-foreground">
+               <div className="p-4 -mx-2 -mb-4 bg-muted/50 rounded-lg text-foreground text-sm space-y-1">
                 <div><strong>Doctor:</strong> {doctorMap.get(selectedSlot.doctorId)?.name}</div>
                 <div><strong>Fecha:</strong> {format(selectedSlot.date, "EEEE, d 'de' MMMM, yyyy", { locale: es })}</div>
                 <div><strong>Hora:</strong> {format(selectedSlot.date, "p", { locale: es })}</div>
