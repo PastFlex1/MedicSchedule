@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Stethoscope, LogOut, User, Calendar, Clock, Check, X, AlertCircle, PartyPopper } from 'lucide-react';
+import { Stethoscope, LogOut, User, Calendar, Clock, Check, X, AlertCircle, PartyPopper, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -25,7 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import type { Appointment } from '@/lib/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -58,7 +58,7 @@ export default function DoctorPage() {
   const [pendingAppointments, setPendingAppointments] = useState<Appointment[]>([]);
   const [approvedAppointments, setApprovedAppointments] = useState<Appointment[]>([]);
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
-  const [rescheduleAppointment, setRescheduleAppointment] = useState<Appointment | null>(null);
+  const [conflictAppointment, setConflictAppointment] = useState<Appointment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
   const { toast } = useToast();
@@ -77,7 +77,13 @@ export default function DoctorPage() {
       const pending: Appointment[] = [];
       const approved: Appointment[] = [];
       querySnapshot.forEach((doc) => {
-        const appointment = { id: doc.id, ...doc.data(), appointmentDate: doc.data().appointmentDate.toDate() } as Appointment;
+        const data = doc.data();
+        const appointment = { 
+            id: doc.id, 
+            ...data, 
+            appointmentDate: (data.appointmentDate as Timestamp).toDate() 
+        } as Appointment;
+
         if (appointment.status === 'pending') {
           pending.push(appointment);
         } else if (appointment.status === 'approved') {
@@ -117,9 +123,15 @@ export default function DoctorPage() {
     setIsCancelling(false);
   };
   
-  const handleRescheduleClick = (appointment: Appointment) => {
-     setRescheduleAppointment(appointment);
+  const handleConflictClick = (appointment: Appointment) => {
+     setConflictAppointment(appointment);
   };
+
+  const hasConflict = (pendingAppointment: Appointment): boolean => {
+    return approvedAppointments.some(
+      approved => approved.appointmentDate.getTime() === pendingAppointment.appointmentDate.getTime()
+    );
+  }
 
 
   return (
@@ -149,20 +161,23 @@ export default function DoctorPage() {
                     </TableRow>
                 ) : pendingAppointments.length > 0 ? (
                   pendingAppointments.map((appointment) => (
-                    <TableRow key={appointment.id}>
+                    <TableRow key={appointment.id} className={hasConflict(appointment) ? 'bg-yellow-500/10' : ''}>
                       <TableCell className="font-medium">{appointment.patientName}</TableCell>
                       <TableCell>{format(appointment.appointmentDate, "d 'de' MMMM, yyyy", { locale: es })}</TableCell>
                       <TableCell>{format(appointment.appointmentDate, "p", { locale: es })}</TableCell>
                       <TableCell>{appointment.requirements || 'N/A'}</TableCell>
                       <TableCell className="text-right space-x-2">
-                         <Button variant="outline" size="icon" className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white" onClick={() => handleApprove(appointment.id!)}>
-                          <Check className="h-4 w-4" />
-                        </Button>
+                        {hasConflict(appointment) ? (
+                            <Button variant="outline" size="icon" className="border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-white" onClick={() => handleConflictClick(appointment)}>
+                                <AlertCircle className="h-4 w-4" />
+                            </Button>
+                        ) : (
+                            <Button variant="outline" size="icon" className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white" onClick={() => handleApprove(appointment.id!)}>
+                                <Check className="h-4 w-4" />
+                            </Button>
+                        )}
                          <Button variant="outline" size="icon" className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white" onClick={() => handleCancelClick(appointment)}>
                           <X className="h-4 w-4" />
-                        </Button>
-                         <Button variant="outline" size="icon" className="border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-white" onClick={() => handleRescheduleClick(appointment)}>
-                          <AlertCircle className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -256,8 +271,8 @@ export default function DoctorPage() {
         </AlertDialog>
       )}
 
-      {rescheduleAppointment && (
-        <AlertDialog open={!!rescheduleAppointment} onOpenChange={() => setRescheduleAppointment(null)}>
+      {conflictAppointment && (
+        <AlertDialog open={!!conflictAppointment} onOpenChange={() => setConflictAppointment(null)}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center gap-2">
@@ -265,13 +280,13 @@ export default function DoctorPage() {
                         ¡Conflicto de Agendamiento!
                     </AlertDialogTitle>
                     <AlertDialogDescription className="pt-4">
-                        La cita para <strong>{rescheduleAppointment.patientName}</strong> a las <strong>{format(rescheduleAppointment.appointmentDate, "p", { locale: es })}</strong> del <strong>{format(rescheduleAppointment.appointmentDate, "d 'de' MMMM", { locale: es })}</strong> tiene un conflicto con otra cita.
+                        La solicitud para <strong>{conflictAppointment.patientName}</strong> a las <strong>{format(conflictAppointment.appointmentDate, "p", { locale: es })}</strong> del <strong>{format(conflictAppointment.appointmentDate, "d 'de' MMMM", { locale: es })}</strong> tiene un conflicto con una cita ya aprobada.
                         <br /><br />
-                        Por favor, cancele esta solicitud y pida al paciente que elija otro horario, o póngase en contacto con el paciente para reagendarla manualmente.
+                        Por favor, <strong>cancele esta solicitud</strong> y pida al paciente que elija otro horario, o póngase en contacto para reagendarla manualmente.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogAction onClick={() => setRescheduleAppointment(null)}>Entendido</AlertDialogAction>
+                    <AlertDialogAction onClick={() => setConflictAppointment(null)}>Entendido</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
