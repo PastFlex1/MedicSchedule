@@ -44,14 +44,14 @@ const initialDoctors: Omit<Doctor, 'id'>[] = [
     name: 'Dra. Ana Pérez',
     specialty: 'Odontología',
     avatarUrl: 'https://placehold.co/100x100.png',
-    icon: 'Smile',
+    icon: 'Tooth', // Corrected icon
     dataAiHint: 'dentist portrait',
   },
   {
     name: 'Dra. Mónica Tapia',
     specialty: 'Obstetricia',
     avatarUrl: 'https://placehold.co/100x100.png',
-    icon: 'Baby',
+    icon: 'PersonStanding', // Corrected icon
     dataAiHint: 'doctor portrait woman',
   },
 ];
@@ -127,21 +127,24 @@ export default function PatientPage() {
   useEffect(() => {
     const seedAndFetchData = async () => {
       setIsLoading(true);
-      // Fetch or seed doctors
+      
+      // --- Improved Seeding Logic ---
       const doctorsCol = collection(db, 'doctors');
-      let doctorList: Doctor[];
       const doctorSnapshot = await getDocs(doctorsCol);
-      if (doctorSnapshot.empty) {
-        doctorList = [];
-        for (let i = 0; i < initialDoctors.length; i++) {
+      const existingDoctorIds = new Set(doctorSnapshot.docs.map(doc => doc.id));
+
+      // Add only the doctors that don't already exist
+      for (let i = 0; i < initialDoctors.length; i++) {
+        const id = (i + 1).toString();
+        if (!existingDoctorIds.has(id)) {
           const doctorData = initialDoctors[i];
-          const id = (i + 1).toString();
           await setDoc(doc(db, 'doctors', id), { ...doctorData, id });
-          doctorList.push({ ...doctorData, id });
         }
-      } else {
-        doctorList = doctorSnapshot.docs.map(doc => doc.data() as Doctor);
       }
+
+      // Fetch all doctors again to have the complete list
+      const allDoctorsSnapshot = await getDocs(doctorsCol);
+      const doctorList = allDoctorsSnapshot.docs.map(doc => doc.data() as Doctor);
       setDoctors(doctorList);
       
       const doctorMap = new Map(doctorList.map(doc => [doc.id, doc]));
@@ -179,7 +182,7 @@ export default function PatientPage() {
                     doctorId: data.doctor.id,
                     doctor: doctor,
                     status: data.status,
-                });
+                } as BookedAppointment);
             }
           });
           setBookedAppointments(appointments);

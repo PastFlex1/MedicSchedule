@@ -36,7 +36,10 @@ export interface Appointment {
 }
 
 
-export interface BookedAppointment extends AppointmentSlot {
+export interface BookedAppointment {
+  id: string;
+  date: Date;
+  doctorId: string;
   doctor: Doctor;
   status: 'pending' | 'approved' | 'cancelled';
 }

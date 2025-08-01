@@ -10,7 +10,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Loader2, CheckCircle2, XCircle, Calendar as CalendarIcon, Clock, icons, Info, Trash2 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -66,7 +66,8 @@ const formSchema = z.object({
 
 
 function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & ComponentProps<typeof Card>) {
-  const IconComponent = doctor.icon ? icons[doctor.icon] : null;
+  // @ts-ignore
+  const IconComponent = doctor.icon && icons[doctor.icon] ? icons[doctor.icon] : null;
 
   return (
     <Card className={cn("flex flex-col text-center items-center p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1", className)} {...props}>
@@ -206,7 +207,7 @@ export function AppointmentBooking({
     if (!appointmentToCancel) return;
 
     startTransition(async () => {
-        const { success, message } = await handleCancelAppointment(appointmentToCancel.id, appointmentToCancel.doctorId, appointmentToCancel.date);
+        const { success, message } = await handleCancelAppointment(appointmentToCancel.id, appointmentToCancel.doctor.id, appointmentToCancel.date);
         
         toast({
             title: success ? "Éxito" : "Error",
@@ -333,7 +334,7 @@ export function AppointmentBooking({
 
       <section id="appointments" className="text-center">
         <h2 className="text-3xl font-bold font-headline mb-2">Citas Disponibles</h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elija un horario que le convenga. Su solicitud será enviada para aprobación del doctor.</p>
+        <p className="text-muted-foreground max-w-2xl mx-auto mb-8">Elija un horario que le convenga. Su cita se confirmará instantáneamente.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {appointmentSlots.map(slot => (
             <AppointmentCard
@@ -349,9 +350,9 @@ export function AppointmentBooking({
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Solicitar Cita</DialogTitle>
+            <DialogTitle>Confirmar Cita</DialogTitle>
             <DialogDescription>
-              Por favor, complete sus datos para solicitar su cita para el {selectedSlot && format(selectedSlot.date, "d 'de' MMMM, yyyy 'a las' p", { locale: es })}.
+              Por favor, complete sus datos para confirmar su cita para el {selectedSlot && format(selectedSlot.date, "d 'de' MMMM, yyyy 'a las' p", { locale: es })}.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -398,7 +399,7 @@ export function AppointmentBooking({
               <DialogFooter>
                 <Button type="submit" disabled={isPending}>
                   {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Enviar Solicitud
+                  Confirmar Cita
                 </Button>
               </DialogFooter>
             </form>
@@ -416,7 +417,7 @@ export function AppointmentBooking({
                 ) : (
                   <XCircle className="h-6 w-6 text-destructive" />
                 )}
-                  {confirmationResult.confirmationStatus ? "Solicitud Enviada" : "Error"}
+                  {confirmationResult.confirmationStatus ? "Cita Confirmada" : "Error"}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {confirmationResult.reason}
