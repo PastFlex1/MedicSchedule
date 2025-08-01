@@ -29,7 +29,7 @@ const initialDoctors: Omit<Doctor, 'id'>[] = [
   {
     name: 'Dra. Emily White',
     specialty: 'Neurología',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://images.pexels.com/photos/32115955/pexels-photo-32115955.jpeg',
     icon: 'Brain',
     dataAiHint: 'doctor portrait',
   },
