@@ -72,3 +72,45 @@ export async function handleCancelAppointment(appointmentId: string, doctorId: s
     return { success: false, message: "Ocurrió un error al cancelar la cita." };
   }
 }
+
+export async function handleCreateSlot(doctorId: string, date: Date): Promise<{ success: boolean; message: string }> {
+  if (!doctorId || !date) {
+    return { success: false, message: "Faltan datos para crear el horario." };
+  }
+  
+  try {
+    const slotId = `${doctorId}_${date.toISOString()}`;
+    const slotRef = doc(db, "appointmentSlots", slotId);
+    
+    const slotSnap = await getDoc(slotRef);
+    if (slotSnap.exists()) {
+      return { success: false, message: "Este horario ya existe." };
+    }
+
+    await setDoc(slotRef, {
+      doctorId,
+      date: Timestamp.fromDate(date)
+    });
+
+    return { success: true, message: "Horario creado exitosamente." };
+  } catch (error) {
+    console.error("Error creating slot:", error);
+    return { success: false, message: "Ocurrió un error al crear el horario." };
+  }
+}
+
+
+export async function handleDeleteSlot(slotId: string): Promise<{ success: boolean; message: string }> {
+  if (!slotId) {
+    return { success: false, message: "Falta el ID del horario." };
+  }
+  
+  try {
+    const slotRef = doc(db, "appointmentSlots", slotId);
+    await deleteDoc(slotRef);
+    return { success: true, message: "Horario eliminado exitosamente." };
+  } catch (error) {
+    console.error("Error deleting slot:", error);
+    return { success: false, message: "Ocurrió un error al eliminar el horario." };
+  }
+}

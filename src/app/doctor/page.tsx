@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Stethoscope, LogOut, User, Calendar, Clock, Check, X, AlertCircle, PartyPopper, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Stethoscope, LogOut, User, Calendar, Clock, Check, X, AlertCircle, PartyPopper, Loader2, PlusCircle, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -26,10 +27,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
-import type { Appointment } from '@/lib/types';
-import { format } from 'date-fns';
+import type { Appointment, AppointmentSlot } from '@/lib/types';
+import { format, setHours, setMinutes, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { handleCancelAppointment } from '../actions';
+import { handleCancelAppointment, handleCreateSlot, handleDeleteSlot } from '../actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
@@ -52,6 +53,116 @@ function Header() {
       </div>
     </header>
   );
+}
+
+function SlotManager({ doctorId }: { doctorId: string }) {
+    const [date, setDate] = useState<Date | undefined>(new Date());
+    const [time, setTime] = useState("09:00");
+    const [availableSlots, setAvailableSlots] = useState<AppointmentSlot[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (!date) return;
+        const q = query(
+            collection(db, "appointmentSlots"),
+            where("doctorId", "==", doctorId),
+            where("date", ">=", startOfDay(date)),
+            where("date", "<", startOfDay(new Date(date.getTime() + 24 * 60 * 60 * 1000)))
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const slots = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as AppointmentSlot));
+            setAvailableSlots(slots.sort((a,b) => a.date.getTime() - b.date.getTime()));
+        });
+        
+        return () => unsubscribe();
+    }, [date, doctorId]);
+
+    const handleAddSlot = async () => {
+        if (!date || !time) {
+            toast({ title: "Error", description: "Por favor, seleccione una fecha y una hora.", variant: "destructive" });
+            return;
+        }
+
+        const [hours, minutes] = time.split(':').map(Number);
+        const newDate = setMinutes(setHours(date, hours), minutes);
+        
+        setIsLoading(true);
+        const result = await handleCreateSlot(doctorId, newDate);
+        setIsLoading(false);
+
+        toast({
+            title: result.success ? "Éxito" : "Error",
+            description: result.message,
+            variant: result.success ? "default" : "destructive",
+        });
+    };
+
+    const handleDelete = async (slotId: string) => {
+       const result = await handleDeleteSlot(slotId);
+       toast({
+           title: result.success ? "Éxito" : "Error",
+           description: result.message,
+           variant: result.success ? "default" : "destructive"
+       });
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Gestionar Horarios Disponibles</CardTitle>
+                <CardDescription>Añada o elimine sus horarios de consulta. Los pacientes los verán en tiempo real.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-8">
+                <div className="flex flex-col gap-4">
+                     <CalendarComponent
+                        mode="single"
+                        selected={date}
+                        onSelect={setDate}
+                        className="rounded-md border"
+                        locale={es}
+                        disabled={(date) => date < startOfDay(new Date())}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Input 
+                            type="time" 
+                            value={time} 
+                            onChange={(e) => setTime(e.target.value)}
+                            className="w-full"
+                        />
+                        <Button onClick={handleAddSlot} disabled={isLoading}>
+                           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                            Añadir
+                        </Button>
+                      </div>
+                </div>
+                <div className="space-y-4">
+                    <h4 className="font-semibold text-center md:text-left">
+                        Horarios para {date ? format(date, "d 'de' MMMM", { locale: es }) : '...'}
+                    </h4>
+                    {availableSlots.length > 0 ? (
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                            {availableSlots.map(slot => (
+                                <Badge key={slot.id} variant="outline" className="flex justify-between items-center py-2 px-3">
+                                    <Clock className="h-4 w-4 mr-2" />
+                                    {format(slot.date, "p", { locale: es })}
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-2 hover:bg-destructive/10" onClick={() => handleDelete(slot.id)}>
+                                        <Trash2 className="h-4 w-4 text-destructive"/>
+                                    </Button>
+                                </Badge>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground text-center pt-8">No hay horarios disponibles para este día.</p>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    )
 }
 
 export default function DoctorPage() {
@@ -138,6 +249,9 @@ export default function DoctorPage() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
       <main className="flex-1 container mx-auto p-4 sm:p-6 md:p-8 space-y-8">
+        
+        <SlotManager doctorId={FAKE_DOCTOR_ID} />
+
         <Card>
           <CardHeader>
             <CardTitle>Solicitudes de Citas Pendientes</CardTitle>

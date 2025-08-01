@@ -25,7 +25,7 @@ export interface Appointment {
   patientId: string;
   contactNumber: string;
   requirements?: string;
-  appointmentDate: Date | Timestamp;
+  appointmentDate: Date;
   doctor: {
     id: string;
     name: string;
