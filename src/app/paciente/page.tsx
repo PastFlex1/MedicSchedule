@@ -36,7 +36,7 @@ const initialDoctors: Omit<Doctor, 'id'>[] = [
   {
     name: 'Dr. David Chen',
     specialty: 'Medicina General',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://images.pexels.com/photos/5452298/pexels-photo-5452298.jpeg',
     icon: 'Stethoscope',
     dataAiHint: 'doctor portrait',
   },
