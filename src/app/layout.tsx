@@ -2,12 +2,13 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
+import * as React from 'react';
 
 export const metadata: Metadata = {
   title: 'MediSchedule',
   description: 'Sistema de Gestión de Citas Médicas',
   icons: {
-    icon: 'https://i.pinimg.com/736x/1d/14/f5/1d14f5a9435ca04f6777bd532d048d67.jpg',
+    icon: 'https://i.pinimg.com/736x/70/93/0b/70930b2e4a4a3cfa2174a2a0b8ee4999.jpg',
   },
 };
 
