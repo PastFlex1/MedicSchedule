@@ -40,6 +40,20 @@ const initialDoctors: Omit<Doctor, 'id'>[] = [
     icon: 'Stethoscope',
     dataAiHint: 'doctor portrait',
   },
+  {
+    name: 'Dra. Ana Pérez',
+    specialty: 'Odontología',
+    avatarUrl: 'https://placehold.co/100x100.png',
+    icon: 'Smile',
+    dataAiHint: 'dentist portrait',
+  },
+  {
+    name: 'Dra. Mónica Tapia',
+    specialty: 'Obstetricia',
+    avatarUrl: 'https://placehold.co/100x100.png',
+    icon: 'Baby',
+    dataAiHint: 'doctor portrait woman',
+  },
 ];
 
 const initialAppointmentSlots: Omit<AppointmentSlot, 'id' | 'date'> & { date: Date }[] = [
