@@ -547,7 +547,4 @@ export function AppointmentBooking({
 
     </div>
   );
-
-    
-
-
+}
