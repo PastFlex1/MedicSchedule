@@ -22,7 +22,7 @@ const initialDoctors: Omit<Doctor, 'id'>[] = [
   {
     name: 'Dr. Mark Smith',
     specialty: 'Ortopedia',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://images.pexels.com/photos/5452293/pexels-photo-5452293.jpeg',
     icon: 'ClipboardPen',
     dataAiHint: 'doctor portrait',
   },
