@@ -56,6 +56,7 @@ import type { Doctor, AppointmentSlot, IconName, BookedAppointment, ConfirmAppoi
 import { handleAppointmentRequest, handleCancelAppointment } from "./actions";
 import { collection, getDocs, doc, setDoc, query, where, deleteDoc } from 'firebase/firestore';
 import { db } from "@/lib/firebase";
+import { ToothIcon } from "@/components/icons/tooth-icon";
 
 
 const formSchema = z.object({
@@ -65,9 +66,14 @@ const formSchema = z.object({
 });
 
 
+const customIcons: { [key: string]: React.ComponentType<{ className?: string }> } = {
+  ToothIcon: ToothIcon,
+};
+
+
 function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & ComponentProps<typeof Card>) {
   // @ts-ignore
-  const IconComponent = doctor.icon && icons[doctor.icon] ? icons[doctor.icon] : null;
+  const IconComponent = doctor.icon && (icons[doctor.icon] || customIcons[doctor.icon]);
 
   return (
     <Card className={cn("flex flex-col text-center items-center p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1", className)} {...props}>

@@ -1,7 +1,8 @@
+
 import type { icons } from 'lucide-react';
 import type { Timestamp } from 'firebase/firestore';
 
-export type IconName = keyof typeof icons;
+export type IconName = keyof typeof icons | 'ToothIcon';
 
 export interface Doctor {
   id: string;

@@ -44,7 +44,7 @@ const initialDoctors: Omit<Doctor, 'id'>[] = [
     name: 'Dra. Ana Pérez',
     specialty: 'Odontología',
     avatarUrl: 'https://placehold.co/100x100.png',
-    icon: 'Smile', 
+    icon: 'ToothIcon', 
     dataAiHint: 'dentist portrait',
   },
   {
