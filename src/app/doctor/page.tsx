@@ -70,11 +70,15 @@ function Header() {
 }
 
 function SlotManager({ doctorId }: { doctorId: string | undefined }) {
-    const [date, setDate] = useState<Date>(new Date());
+    const [date, setDate] = useState<Date | undefined>();
     const [time, setTime] = useState("09:00");
     const [allSlots, setAllSlots] = useState<AppointmentSlot[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
+
+    useEffect(() => {
+        setDate(new Date());
+    }, []);
 
     useEffect(() => {
         if (!doctorId) {
@@ -152,6 +156,7 @@ function SlotManager({ doctorId }: { doctorId: string | undefined }) {
                         className="rounded-md border"
                         locale={es}
                         disabled={(date) => date < startOfDay(new Date()) || !doctorId}
+                        initialFocus
                       />
                       <div className="flex items-center gap-2">
                         <Input 
