@@ -15,7 +15,7 @@ const initialDoctors: Omit<Doctor, 'id'>[] = [
   {
     name: 'Dra. Sarah Johnson',
     specialty: 'Cardiología',
-    avatarUrl: 'https://placehold.co/100x100.png',
+    avatarUrl: 'https://images.pexels.com/photos/5206931/pexels-photo-5206931.jpeg',
     icon: 'HeartPulse',
     dataAiHint: 'doctor portrait',
   },
