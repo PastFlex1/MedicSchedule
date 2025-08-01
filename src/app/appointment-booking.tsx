@@ -72,8 +72,7 @@ const customIcons: { [key: string]: React.ComponentType<{ className?: string }> 
 
 
 function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & ComponentProps<typeof Card>) {
-  // @ts-ignore
-  const IconComponent = doctor.icon && (icons[doctor.icon] || customIcons[doctor.icon]);
+  const IconComponent = doctor.icon && (icons[doctor.icon as keyof typeof icons] || customIcons[doctor.icon]);
 
   return (
     <Card className={cn("flex flex-col text-center items-center p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1", className)} {...props}>
@@ -87,7 +86,7 @@ function DoctorCard({ doctor, className, ...props }: { doctor: Doctor } & Compon
       </CardHeader>
       <CardContent className="p-0">
           <Badge variant="secondary" className="bg-accent/20 text-accent-foreground/80">
-              {IconComponent && createElement(IconComponent, { className: "mr-2 h-4 w-4 text-accent" })}
+              {IconComponent && <IconComponent className="mr-2 h-4 w-4 text-accent" />}
               {doctor.specialty}
           </Badge>
       </CardContent>
